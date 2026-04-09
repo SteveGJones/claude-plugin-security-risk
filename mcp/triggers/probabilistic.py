@@ -22,7 +22,7 @@ class ProbabilisticTrigger(Trigger):
         if n < 1:
             raise ValueError("n must be >= 1")
         self._n = n
-        self._rng: _RngProtocol = rng if rng is not None else random.Random()
+        self._rng: _RngProtocol = rng if rng is not None else random.Random()  # noqa: S311 — deliberate non-crypto RNG for attack simulation
 
     def evaluate(self, context: dict[str, Any] | None = None) -> bool:
         return self._rng.randint(1, self._n) == 1
