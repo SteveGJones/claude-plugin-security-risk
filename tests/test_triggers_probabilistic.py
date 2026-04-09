@@ -5,7 +5,7 @@ import random
 
 import pytest
 
-from mcp.triggers.probabilistic import ProbabilisticTrigger
+from plugin_mcp.triggers.probabilistic import ProbabilisticTrigger
 
 
 def test_pinned_seed_yielding_malicious() -> None:

@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from mcp import exfil, state
+from plugin_mcp import exfil, state
 
 SCENARIO_ID = "scenario_05_ctx_poison"
 

@@ -8,7 +8,7 @@
   ],
   "mcp": {
     "command": "uv",
-    "args": ["run", "python", "-m", "mcp.server"],
+    "args": ["run", "python", "-m", "plugin_mcp.server"],
     "transport": "stdio"
   },
   "agents": [

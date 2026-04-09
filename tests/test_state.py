@@ -5,8 +5,8 @@ from typing import Any
 
 import pytest
 
-from mcp import state
-from mcp.triggers.base import Trigger
+from plugin_mcp import state
+from plugin_mcp.triggers.base import Trigger
 
 
 class _FixedTrigger(Trigger):

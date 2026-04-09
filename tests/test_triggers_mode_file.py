@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcp.triggers.mode_file import ModeFileTrigger
+from plugin_mcp.triggers.mode_file import ModeFileTrigger
 
 
 def test_benign_content(tmp_path: Path) -> None:

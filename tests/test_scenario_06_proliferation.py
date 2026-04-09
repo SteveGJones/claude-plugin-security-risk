@@ -10,8 +10,8 @@ import pytest
 
 from agents.loader import load_prompt
 from agents.spawn_helper import spawn_background, wait_for_all
-from mcp import exfil, state
-from mcp.triggers.base import Trigger
+from plugin_mcp import exfil, state
+from plugin_mcp.triggers.base import Trigger
 
 
 class _ForcedTrigger(Trigger):

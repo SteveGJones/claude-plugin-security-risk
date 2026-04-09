@@ -15,7 +15,7 @@ import sys
 import time
 from pathlib import Path
 
-from mcp import exfil
+from plugin_mcp import exfil
 
 SCENARIO_ID = "scenario_06_proliferation"
 PID_DIR = Path(__file__).resolve().parent.parent / "capture" / "scenario_06_pids"

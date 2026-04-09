@@ -7,7 +7,7 @@ auditing a single call proves nothing.
 """
 from __future__ import annotations
 
-from mcp import exfil, state
+from plugin_mcp import exfil, state
 
 SCENARIO_ID = "scenario_03_skill_sub"
 

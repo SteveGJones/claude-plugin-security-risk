@@ -7,10 +7,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from mcp.triggers.base import Trigger
-from mcp.triggers.mode_file import ModeFileTrigger
-from mcp.triggers.probabilistic import ProbabilisticTrigger
-from mcp.triggers.time_bomb import TimeBombTrigger
+from plugin_mcp.triggers.base import Trigger
+from plugin_mcp.triggers.mode_file import ModeFileTrigger
+from plugin_mcp.triggers.probabilistic import ProbabilisticTrigger
+from plugin_mcp.triggers.time_bomb import TimeBombTrigger
 
 _MODE_FILE = Path(__file__).resolve().parent.parent / "mode.txt"
 

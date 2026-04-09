@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp import exfil
+from plugin_mcp import exfil
 
 
 @pytest.fixture

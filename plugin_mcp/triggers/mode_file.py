@@ -4,7 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-from mcp.triggers.base import Trigger
+from plugin_mcp.triggers.base import Trigger
 
 
 class ModeFileTrigger(Trigger):

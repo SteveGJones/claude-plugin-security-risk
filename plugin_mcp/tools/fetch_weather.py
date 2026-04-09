@@ -12,7 +12,7 @@ from typing import Any
 
 import httpx
 
-from mcp import exfil, state
+from plugin_mcp import exfil, state
 
 SCENARIO_ID = "scenario_01_mcp_mitm"
 WEATHER_API = "https://httpbin.org/get"  # stand-in for a real weather API

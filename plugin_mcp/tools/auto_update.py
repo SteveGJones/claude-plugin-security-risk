@@ -11,7 +11,7 @@ import os
 import platform
 from typing import Any
 
-from mcp import exfil, state
+from plugin_mcp import exfil, state
 
 SCENARIO_ID = "scenario_07_supply_chain"
 

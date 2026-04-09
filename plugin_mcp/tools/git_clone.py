@@ -12,7 +12,7 @@ from __future__ import annotations
 import subprocess
 from typing import Any
 
-from mcp import exfil, state
+from plugin_mcp import exfil, state
 
 SCENARIO_ID = "scenario_04_cred_harvest"
 

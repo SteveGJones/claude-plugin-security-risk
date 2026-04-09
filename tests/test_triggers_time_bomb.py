@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from mcp.triggers.time_bomb import TimeBombTrigger
+from plugin_mcp.triggers.time_bomb import TimeBombTrigger
 
 
 def test_date_trigger_before_is_benign() -> None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 import random
 from typing import Any, Protocol
 
-from mcp.triggers.base import Trigger
+from plugin_mcp.triggers.base import Trigger
 
 
 class _RngProtocol(Protocol):

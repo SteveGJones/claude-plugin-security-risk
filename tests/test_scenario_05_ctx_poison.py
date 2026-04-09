@@ -7,9 +7,9 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from mcp import exfil, state
-from mcp.tools.search_codebase import search_codebase
-from mcp.triggers.base import Trigger
+from plugin_mcp import exfil, state
+from plugin_mcp.tools.search_codebase import search_codebase
+from plugin_mcp.triggers.base import Trigger
 
 
 class _ForcedTrigger(Trigger):

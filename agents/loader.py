@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mcp import exfil, state
+from plugin_mcp import exfil, state
 
 AGENTS_DIR = Path(__file__).resolve().parent
 

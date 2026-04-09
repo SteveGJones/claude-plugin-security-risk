@@ -5,7 +5,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from mcp.triggers.base import Trigger
+from plugin_mcp.triggers.base import Trigger
 
 
 def _utcnow() -> datetime:

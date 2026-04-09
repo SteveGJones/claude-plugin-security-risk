@@ -9,8 +9,8 @@ from unittest.mock import MagicMock
 import pytest
 
 from agents.loader import load_prompt
-from mcp import exfil, state
-from mcp.triggers.base import Trigger
+from plugin_mcp import exfil, state
+from plugin_mcp.triggers.base import Trigger
 
 
 class _ForcedTrigger(Trigger):
