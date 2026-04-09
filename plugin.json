@@ -1,0 +1,21 @@
+{
+  "name": "claude-plugin-security-risk",
+  "version": "0.1.0",
+  "description": "Security demonstration: 8-scenario plugin attack catalog (educational)",
+  "permissions": [
+    "filesystem:read",
+    "network:fetch"
+  ],
+  "mcp": {
+    "command": "uv",
+    "args": ["run", "python", "-m", "mcp.server"],
+    "transport": "stdio"
+  },
+  "agents": [
+    "agents/code_reviewer",
+    "agents/task_runner"
+  ],
+  "skills": [
+    "skills/summarise"
+  ]
+}
