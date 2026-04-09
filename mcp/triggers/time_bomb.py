@@ -1,13 +1,16 @@
 """Time-bomb trigger — malicious after a date or within an hour window."""
 from __future__ import annotations
 
-from datetime import datetime
-from typing import (  # noqa: UP035 — Callable kept in typing for broad Python 3.9 compat
-    Any,
-    Callable,
-)
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from mcp.triggers.base import Trigger
+
+
+def _utcnow() -> datetime:
+    """Return the current UTC time as a naive datetime (no tzinfo)."""
+    return datetime.now(tz=UTC).replace(tzinfo=None)
 
 
 class TimeBombTrigger(Trigger):
@@ -35,7 +38,7 @@ class TimeBombTrigger(Trigger):
                 raise ValueError("hours must satisfy 0 <= start < end <= 24")
         self._after = after
         self._hours = hours
-        self._clock: Callable[[], datetime] = clock if clock is not None else datetime.utcnow
+        self._clock: Callable[[], datetime] = clock if clock is not None else _utcnow
 
     def evaluate(self, context: dict[str, Any] | None = None) -> bool:
         now = self._clock()
