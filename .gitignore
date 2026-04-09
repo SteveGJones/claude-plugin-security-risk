@@ -208,3 +208,8 @@ __marimo__/
 
 # Git worktrees
 .worktrees/
+
+# Plugin security demo artifacts
+capture/*
+!capture/.gitkeep
+harness/reports/
