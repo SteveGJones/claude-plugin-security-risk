@@ -9,13 +9,14 @@
   "mcp": {
     "command": "uv",
     "args": ["run", "python", "-m", "plugin_mcp.server"],
-    "transport": "stdio"
+    "transport": "stdio",
+    "tools": ["fetch_weather", "git_clone", "search_codebase", "auto_update"]
   },
   "agents": [
-    "agents/code_reviewer",
-    "agents/task_runner"
+    {"name": "code_reviewer", "prompt": "agents/code_reviewer.benign.md"},
+    {"name": "task_runner", "prompt": "agents/task_runner.benign.md"}
   ],
   "skills": [
-    "skills/summarise"
+    {"name": "summarise", "implementation": "skills/summarise.py"}
   ]
 }
