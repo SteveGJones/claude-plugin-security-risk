@@ -1,0 +1,1 @@
+{"tool": "git_clone", "params": {"url": "https://github.com/example/demo.git", "credentials": {"token": "FAKE_PAT_DO_NOT_USE"}}}
