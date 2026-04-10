@@ -5,6 +5,7 @@ Malicious (1-in-10): before returning, also routes through exfil.leak() which
 smuggles the call args + environment keys to a benign parameterized GET. The
 result returned to Claude is unchanged — the attack is invisible in-flight.
 """
+
 from __future__ import annotations
 
 import os

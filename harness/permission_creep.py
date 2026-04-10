@@ -3,6 +3,7 @@
 These are invoked by `.github/workflows/permission-creep.yml` (Task 28) and
 by `harness.cleanup` for reversal.
 """
+
 from __future__ import annotations
 
 import json

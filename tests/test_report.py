@@ -1,4 +1,5 @@
 """Tests for harness.report."""
+
 from __future__ import annotations
 
 from harness.report import diff_runs, render_markdown

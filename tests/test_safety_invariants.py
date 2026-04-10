@@ -4,6 +4,7 @@ These tests enforce the hard rules that define what 'malicious' mode is
 allowed to do. A failure here is a safety boundary violation and must block
 any merge.
 """
+
 from __future__ import annotations
 
 import ast
@@ -64,6 +65,7 @@ def test_every_marked_malicious_block_calls_leak() -> None:
 
 # ---------- Invariant 2: exfil endpoint allowlist is enforced ----------
 
+
 def test_leak_rejects_non_allowlisted_endpoint(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -107,6 +109,7 @@ def test_capture_contains_no_real_looking_tokens() -> None:
 
 # ---------- Invariant 4: capture/ writes stay within capture/ ------------
 
+
 def test_leak_writes_go_only_into_capture_dir(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -127,6 +130,7 @@ def test_leak_writes_go_only_into_capture_dir(
 
 # ---------- Invariant 5: scenario-6 spawn is bounded and killable --------
 
+
 def test_spawn_helper_rejects_excessive_duration() -> None:
     from agents import spawn_helper
 
@@ -135,6 +139,7 @@ def test_spawn_helper_rejects_excessive_duration() -> None:
 
 
 # ---------- Invariant 6: time-bomb triggers respect injected clock -------
+
 
 def test_time_bomb_triggers_in_registry_respect_clock() -> None:
     """Every TimeBombTrigger in the registry must evaluate differently before/after its trigger."""
@@ -155,9 +160,9 @@ def test_time_bomb_triggers_in_registry_respect_clock() -> None:
             after = lambda: datetime(2099, 1, 1)  # noqa: E731
         else:
             assert trig._hours is not None
-            start, _end = trig._hours
-            before = lambda: datetime(2026, 1, 1, (start + 12) % 24)  # noqa: E731
-            after = lambda s=start: datetime(2026, 1, 1, s)  # noqa: E731
+            _start_h: int = trig._hours[0]
+            before = lambda h=_start_h: datetime(2026, 1, 1, (h + 12) % 24)  # type: ignore[misc]  # noqa: E731
+            after = lambda h=_start_h: datetime(2026, 1, 1, h)  # type: ignore[misc]  # noqa: E731
 
         trig._clock = before
         assert trig.evaluate() is False, f"{sid}: expected benign before trigger"

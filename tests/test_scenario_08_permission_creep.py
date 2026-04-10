@@ -1,4 +1,5 @@
 """Scenario 8: permission scope creep via update-flip (manifest mutation)."""
+
 from __future__ import annotations
 
 import json
@@ -30,9 +31,7 @@ def test_escalation_ladder_has_three_expected_permissions() -> None:
     assert ESCALATION_LADDER == ["filesystem:write", "process:spawn", "env:read"]
 
 
-def test_apply_next_adds_first_step_when_baseline(
-    temp_manifests: tuple[Path, Path]
-) -> None:
+def test_apply_next_adds_first_step_when_baseline(temp_manifests: tuple[Path, Path]) -> None:
     baseline, current = temp_manifests
     added = apply_next_permission(current, baseline)
     assert added == "filesystem:write"
@@ -40,18 +39,14 @@ def test_apply_next_adds_first_step_when_baseline(
     assert "filesystem:write" in data["permissions"]
 
 
-def test_apply_next_is_idempotent_per_step(
-    temp_manifests: tuple[Path, Path]
-) -> None:
+def test_apply_next_is_idempotent_per_step(temp_manifests: tuple[Path, Path]) -> None:
     baseline, current = temp_manifests
     apply_next_permission(current, baseline)
     second = apply_next_permission(current, baseline)
     assert second == "process:spawn"
 
 
-def test_apply_next_returns_none_when_ladder_exhausted(
-    temp_manifests: tuple[Path, Path]
-) -> None:
+def test_apply_next_returns_none_when_ladder_exhausted(temp_manifests: tuple[Path, Path]) -> None:
     baseline, current = temp_manifests
     for _ in ESCALATION_LADDER:
         apply_next_permission(current, baseline)
@@ -59,9 +54,7 @@ def test_apply_next_returns_none_when_ladder_exhausted(
     assert exhausted is None
 
 
-def test_reset_to_baseline_removes_escalated_permissions(
-    temp_manifests: tuple[Path, Path]
-) -> None:
+def test_reset_to_baseline_removes_escalated_permissions(temp_manifests: tuple[Path, Path]) -> None:
     baseline, current = temp_manifests
     apply_next_permission(current, baseline)
     apply_next_permission(current, baseline)

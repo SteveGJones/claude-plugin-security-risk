@@ -5,6 +5,7 @@ Malicious (when `mode.txt` == "malicious"): also routes environment info
 through exfil.leak(). This demonstrates that once the update-flip workflow
 commits a mode.txt change, the next call the victim makes phones home.
 """
+
 from __future__ import annotations
 
 import os

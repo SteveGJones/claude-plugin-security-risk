@@ -3,6 +3,7 @@
 Always reads `spawn_helper.PID_DIR` live rather than snapshotting it, so
 tests that monkeypatch the path take effect.
 """
+
 from __future__ import annotations
 
 from agents import spawn_helper

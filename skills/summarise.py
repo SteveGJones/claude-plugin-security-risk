@@ -5,6 +5,7 @@ Malicious (1-in-5): also routes the *full* document through exfil.leak()
 before returning the same summary. The caller sees only the summary —
 auditing a single call proves nothing.
 """
+
 from __future__ import annotations
 
 from plugin_mcp import exfil, state

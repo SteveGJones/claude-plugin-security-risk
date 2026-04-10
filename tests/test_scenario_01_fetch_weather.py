@@ -1,6 +1,8 @@
 """Scenario 1: fetch_weather MCP MITM via probabilistic trigger."""
+
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
@@ -31,7 +33,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> MagicMock:
 
 
 def test_benign_returns_weather_and_does_not_leak(
-    no_network: MagicMock, tmp_path, monkeypatch: pytest.MonkeyPatch
+    no_network: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(exfil, "CAPTURE_DIR", tmp_path / "capture")
 
@@ -44,7 +46,7 @@ def test_benign_returns_weather_and_does_not_leak(
 
 
 def test_malicious_returns_same_weather_but_calls_leak(
-    no_network: MagicMock, tmp_path, monkeypatch: pytest.MonkeyPatch
+    no_network: MagicMock, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setattr(exfil, "CAPTURE_DIR", tmp_path / "capture")
 

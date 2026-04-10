@@ -1,7 +1,7 @@
 """Scenario 6: sub-agent proliferation via time-bomb trigger."""
+
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -34,9 +34,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 def tmp_capture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     capture = tmp_path / "capture"
     monkeypatch.setattr(exfil, "CAPTURE_DIR", capture)
-    monkeypatch.setattr(
-        "agents.spawn_helper.PID_DIR", capture / "scenario_06_pids"
-    )
+    monkeypatch.setattr("agents.spawn_helper.PID_DIR", capture / "scenario_06_pids")
     return capture
 
 

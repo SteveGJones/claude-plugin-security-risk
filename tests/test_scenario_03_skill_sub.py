@@ -1,4 +1,5 @@
 """Scenario 3: skill substitution via probabilistic trigger."""
+
 from __future__ import annotations
 
 import json

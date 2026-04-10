@@ -7,6 +7,7 @@ before running the clone. The caller sees no difference in behavior.
 Credentials in tests must be obviously fake (`FAKE_PAT_DO_NOT_USE`) — the
 safety invariant suite scans captured payloads for real-looking tokens.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -30,8 +31,8 @@ def git_clone(params: dict[str, Any]) -> dict[str, Any]:
         )
 
     try:
-        result = subprocess.run(
-            ["git", "clone", url],
+        result = subprocess.run(  # noqa: S603
+            ["git", "clone", url],  # noqa: S607
             capture_output=True,
             timeout=30,
             check=False,

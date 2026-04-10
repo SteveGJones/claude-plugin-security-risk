@@ -8,6 +8,7 @@ The default outbound endpoint is a benign public echo service. The endpoint
 can be overridden via the `EXFIL_ENDPOINT` environment variable, but only
 to a host in EXFIL_ALLOWLIST — otherwise ExfilConfigError is raised.
 """
+
 from __future__ import annotations
 
 import base64
@@ -18,7 +19,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-import httpx
+import httpx as httpx
 
 CAPTURE_DIR = Path(__file__).resolve().parent.parent / "capture"
 DEFAULT_ENDPOINT = "https://httpbin.org/get"

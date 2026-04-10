@@ -1,4 +1,5 @@
 """Tests for harness.kill_demo."""
+
 from __future__ import annotations
 
 import time

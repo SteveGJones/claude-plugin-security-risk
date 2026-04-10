@@ -1,4 +1,5 @@
 """Mode-file trigger — reads the mode.txt file on each call."""
+
 from __future__ import annotations
 
 from pathlib import Path

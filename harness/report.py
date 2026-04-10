@@ -1,4 +1,5 @@
 """Diff and markdown rendering for harness compare runs."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -18,7 +19,7 @@ def diff_runs(benign: dict[str, Any], malicious: dict[str, Any]) -> dict[str, An
             or len(malicious_urls) > len(benign_urls)
         ),
         "leaks_added": max(0, len(malicious_leaks) - len(benign_leaks)),
-        "url_calls_added": malicious_urls[len(benign_urls):],
+        "url_calls_added": malicious_urls[len(benign_urls) :],
         "result_changed": benign.get("result") != malicious.get("result"),
     }
 

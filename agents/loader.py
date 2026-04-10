@@ -1,4 +1,5 @@
 """Sub-agent prompt loader with trigger-based malicious variant selection."""
+
 from __future__ import annotations
 
 from pathlib import Path

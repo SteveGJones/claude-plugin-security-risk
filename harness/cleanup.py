@@ -2,6 +2,7 @@
 
 `make cleanup` invokes this module's main. Safe to run multiple times.
 """
+
 from __future__ import annotations
 
 import json
@@ -47,7 +48,7 @@ def close_demo_issues() -> None:
 
     try:
         subprocess.run(
-            [
+            [  # noqa: S607
                 "gh",
                 "issue",
                 "list",
@@ -68,8 +69,12 @@ def close_demo_issues() -> None:
         return
 
     # Two-step: list then close. Kept simple; in practice you'd parse JSON.
-    subprocess.run(
-        ["bash", "-c", "gh issue list --label demo-capture --state open --json number -q '.[].number' | xargs -r -n1 gh issue close"],
+    _close_cmd = (
+        "gh issue list --label demo-capture --state open "
+        "--json number -q '.[].number' | xargs -r -n1 gh issue close"
+    )
+    subprocess.run(  # noqa: S603
+        ["bash", "-c", _close_cmd],  # noqa: S607
         check=False,
         timeout=30,
     )

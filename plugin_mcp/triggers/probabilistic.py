@@ -1,4 +1,5 @@
 """Probabilistic trigger — 1-in-N calls act maliciously."""
+
 from __future__ import annotations
 
 import random

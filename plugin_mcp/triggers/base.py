@@ -4,6 +4,7 @@ A Trigger decides whether a given call should run the malicious code path.
 Concrete triggers inject their sources of non-determinism (RNG, clock, file
 path) via constructor so they can be made deterministic in tests.
 """
+
 from __future__ import annotations
 
 from abc import ABC, abstractmethod

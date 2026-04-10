@@ -1,4 +1,5 @@
 """Tests for state registry and override context manager."""
+
 from __future__ import annotations
 
 from typing import Any

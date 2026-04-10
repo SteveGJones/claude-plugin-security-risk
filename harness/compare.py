@@ -7,11 +7,13 @@ For each scenario:
 4. Capture results, leaks, and outbound URL calls from both runs.
 5. Diff and render a markdown report.
 """
+
 from __future__ import annotations
 
 import argparse
 import datetime as dt
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -50,15 +52,18 @@ def run_scenario(short_id: str, force_malicious: bool, tmp_capture: Path) -> dic
 
     # Intercept network calls and capture dir
     url_calls: list[str] = []
-    fake_get = MagicMock(
-        side_effect=lambda url, **kw: url_calls.append(url) or MagicMock(json=MagicMock(return_value={}))
-    )
+
+    def _record_get(url: str, **_kw: Any) -> MagicMock:
+        url_calls.append(url)
+        return MagicMock(json=MagicMock(return_value={}))
+
+    fake_get = MagicMock(side_effect=_record_get)
 
     import httpx
 
     original_get = httpx.get
     original_capture = exfil.CAPTURE_DIR
-    httpx.get = fake_get  # type: ignore[assignment]
+    httpx.get = fake_get
     exfil.CAPTURE_DIR = tmp_capture
     tmp_capture.mkdir(parents=True, exist_ok=True)
 
@@ -66,7 +71,7 @@ def run_scenario(short_id: str, force_malicious: bool, tmp_capture: Path) -> dic
         with state.override(scenario_id, _ForcedTrigger(force_malicious)):
             result = _invoke(short_id, fixture)
     finally:
-        httpx.get = original_get  # type: ignore[assignment]
+        httpx.get = original_get
         exfil.CAPTURE_DIR = original_capture
 
     leaks: list[dict[str, Any]] = []
@@ -81,30 +86,36 @@ def _invoke(short_id: str, fixture: dict[str, Any]) -> Any:
     """Dispatch a fixture to the right implementation."""
     if short_id == "scenario_01":
         from plugin_mcp.tools.fetch_weather import fetch_weather
+
         return fetch_weather(fixture["params"])
     if short_id == "scenario_02":
         from agents.loader import load_prompt
+
         return load_prompt(fixture["agent"])
     if short_id == "scenario_03":
         from skills.summarise import summarise
+
         return summarise(fixture["document"])
     if short_id == "scenario_04":
         from plugin_mcp.tools.git_clone import git_clone
-        import subprocess
+
         orig = subprocess.run
-        subprocess.run = MagicMock(return_value=MagicMock(returncode=0, stderr=b""))  # type: ignore[assignment]
+        subprocess.run = MagicMock(return_value=MagicMock(returncode=0, stderr=b""))
         try:
             return git_clone(fixture["params"])
         finally:
-            subprocess.run = orig  # type: ignore[assignment]
+            subprocess.run = orig
     if short_id == "scenario_05":
         from plugin_mcp.tools.search_codebase import search_codebase
+
         return search_codebase(fixture["params"])
     if short_id == "scenario_06":
         from agents.loader import load_prompt
+
         return load_prompt(fixture["agent"])
     if short_id == "scenario_07":
         from plugin_mcp.tools.auto_update import auto_update
+
         return auto_update(fixture["params"])
     if short_id == "scenario_08":
         return {"skipped": "scenario 8 is manifest-level; see harness/permission_creep.py"}
@@ -114,22 +125,33 @@ def _invoke(short_id: str, fixture: dict[str, Any]) -> Any:
 def compare_one(short_id: str, reports_dir: Path) -> None:
     from harness.report import diff_runs, render_markdown
 
-    benign = run_scenario(short_id, force_malicious=False, tmp_capture=reports_dir / f"{short_id}_benign")
-    malicious = run_scenario(short_id, force_malicious=True, tmp_capture=reports_dir / f"{short_id}_malicious")
+    benign = run_scenario(
+        short_id, force_malicious=False, tmp_capture=reports_dir / f"{short_id}_benign"
+    )
+    malicious = run_scenario(
+        short_id, force_malicious=True, tmp_capture=reports_dir / f"{short_id}_malicious"
+    )
 
     (reports_dir / f"{short_id}_benign.json").write_text(json.dumps(benign, default=str, indent=2))
-    (reports_dir / f"{short_id}_malicious.json").write_text(json.dumps(malicious, default=str, indent=2))
+    malicious_json = json.dumps(malicious, default=str, indent=2)
+    (reports_dir / f"{short_id}_malicious.json").write_text(malicious_json)
 
     diff = diff_runs(benign, malicious)
     diff["scenario"] = short_id
     report_md = render_markdown(diff)
     (reports_dir / f"{short_id}.md").write_text(report_md)
-    print(f"{short_id}: behavioral_difference={diff['behavioral_difference']} leaks_added={diff['leaks_added']}")
+    bd = diff["behavioral_difference"]
+    la = diff["leaks_added"]
+    print(f"{short_id}: behavioral_difference={bd} leaks_added={la}")
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run scenarios in both modes and diff.")
-    parser.add_argument("scenario", nargs="?", help="Scenario short id (e.g. scenario_01). Omit for all.")
+    parser.add_argument(
+        "scenario",
+        nargs="?",
+        help="Scenario short id (e.g. scenario_01). Omit for all.",
+    )
     parser.add_argument(
         "--distribution",
         type=int,

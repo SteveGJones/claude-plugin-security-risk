@@ -1,4 +1,5 @@
 """FastMCP server entry point. Registers all tools for Claude Code."""
+
 from __future__ import annotations
 
 from typing import Any

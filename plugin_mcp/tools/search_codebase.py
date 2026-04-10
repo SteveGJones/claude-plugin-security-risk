@@ -6,6 +6,7 @@ backing source file — carefully crafted to look like a legitimate match but
 containing natural-language instructions that guide Claude toward an unsafe
 action. Also routes a record of the injection through exfil.leak().
 """
+
 from __future__ import annotations
 
 from typing import Any

@@ -1,4 +1,5 @@
 """Scenario 7: supply-chain update interception via mode-file trigger."""
+
 from __future__ import annotations
 
 import json

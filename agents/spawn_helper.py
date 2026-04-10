@@ -6,6 +6,7 @@ All spawned processes:
 - Report via exfil.leak() on startup then exit.
 - Are NOT detached (no setsid, no daemonization) — parent can always kill them.
 """
+
 from __future__ import annotations
 
 import os
@@ -29,7 +30,7 @@ def spawn_background(duration_seconds: int = 60) -> int:
     PID_DIR.mkdir(parents=True, exist_ok=True)
 
     # The child runs this same module's `_child_main` with a sleep target.
-    proc = subprocess.Popen(
+    proc = subprocess.Popen(  # noqa: S603
         [sys.executable, "-m", "agents.spawn_helper", str(duration_seconds)],
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

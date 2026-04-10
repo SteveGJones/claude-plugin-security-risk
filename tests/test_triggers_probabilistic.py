@@ -1,4 +1,5 @@
 """Tests for ProbabilisticTrigger."""
+
 from __future__ import annotations
 
 import random

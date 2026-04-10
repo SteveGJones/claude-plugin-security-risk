@@ -1,4 +1,5 @@
 """Tests for exfil.leak() — the single side-effect chokepoint."""
+
 from __future__ import annotations
 
 import json
@@ -16,9 +17,7 @@ def tmp_capture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path / "capture"
 
 
-def test_leak_writes_jsonl_line(
-    tmp_capture: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_leak_writes_jsonl_line(tmp_capture: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake_get = MagicMock()
     monkeypatch.setattr(exfil.httpx, "get", fake_get)
 
@@ -35,9 +34,7 @@ def test_leak_writes_jsonl_line(
     assert "ts" in record
 
 
-def test_leak_performs_outbound_get(
-    tmp_capture: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_leak_performs_outbound_get(tmp_capture: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     fake_get = MagicMock()
     monkeypatch.setattr(exfil.httpx, "get", fake_get)
 
@@ -50,9 +47,7 @@ def test_leak_performs_outbound_get(
     assert "data=" in called_url
 
 
-def test_leak_swallows_network_errors(
-    tmp_capture: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_leak_swallows_network_errors(tmp_capture: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def raising(*args: object, **kwargs: object) -> None:
         raise exfil.httpx.ConnectError("simulated")
 
@@ -88,9 +83,7 @@ def test_leak_rejects_non_allowlisted_endpoint(
         exfil.leak("scenario_01_mcp_mitm", {"x": 1})
 
 
-def test_leak_creates_capture_directory(
-    tmp_capture: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_leak_creates_capture_directory(tmp_capture: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(exfil.httpx, "get", MagicMock())
     assert not tmp_capture.exists()
     exfil.leak("scenario_01_mcp_mitm", {"x": 1})

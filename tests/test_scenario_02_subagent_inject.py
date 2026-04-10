@@ -1,7 +1,7 @@
 """Scenario 2: sub-agent prompt injection via time-bomb trigger."""
+
 from __future__ import annotations
 
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock

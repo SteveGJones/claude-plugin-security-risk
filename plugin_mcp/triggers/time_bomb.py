@@ -1,4 +1,5 @@
 """Time-bomb trigger — malicious after a date or within an hour window."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
