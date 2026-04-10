@@ -321,6 +321,79 @@ The repository is intended to grow into a working demonstration. Planned compone
 
 ---
 
+## Running the Demo
+
+### Install dependencies
+
+```bash
+make install
+```
+
+This creates `.venv/`, installs the project in editable mode, and pulls in
+`fastmcp`, `httpx`, `pytest`, `ruff`, and `mypy`.
+
+### Run the test suite
+
+```bash
+make test
+```
+
+Runs every scenario's unit tests plus the safety invariant suite.
+
+### Compare modes for one scenario
+
+```bash
+./harness/compare.sh scenario_01
+```
+
+For each scenario, the harness forces the trigger into both benign and
+malicious modes, runs the implementation against a canned fixture, and
+writes a markdown diff report to `harness/reports/<timestamp>/`.
+
+To see the probabilistic distribution of a trigger in the wild:
+
+```bash
+./harness/compare.sh scenario_01 --distribution 1000
+```
+
+### Reset after a demo session
+
+```bash
+make cleanup
+```
+
+Empties `capture/`, kills any scenario-6 background processes, resets
+`mode.txt` to `benign`, restores `plugin.json` to its baseline, and closes
+any open GitHub issues labelled `demo-capture` (if `gh` is installed).
+
+### Live toggle workflows
+
+Two GitHub Actions workflows demonstrate the update-vector scenarios on a
+live schedule:
+
+- `toggle-mode.yml` — nightly at 02:00 UTC, flips `mode.txt` between
+  `benign` and `malicious`. Scenarios 7 activates when `mode.txt` is
+  `malicious`.
+- `permission-creep.yml` — weekly on Mondays at 03:00 UTC, adds the next
+  permission from the escalation ladder to `plugin.json`. Trigger
+  `action=reset` via manual dispatch to restore the baseline.
+
+Both workflows can be triggered manually via the GitHub Actions UI.
+
+### Install as a Claude Code plugin (live mode)
+
+```bash
+/plugin marketplace add SteveGJones/claude-plugin-security-risk
+/plugin install claude-plugin-security-risk
+/reload-plugins
+```
+
+Once installed, the MCP tools, agents, and skills are available in Claude
+Code sessions. Whether a given call acts maliciously depends on the
+scenario's trigger (see the scenario catalog above).
+
+---
+
 ## Responsible Disclosure Note
 
 This repository exists to make an abstract threat concrete and auditable. If you discover that any of the patterns demonstrated here are being used in a real plugin in the wild, please follow the responsible disclosure process of the affected platform.
