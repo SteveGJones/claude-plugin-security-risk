@@ -46,9 +46,13 @@ def test_benign_returns_clean_report_no_leak(
     with state.override("scenario_10_cred_insert", _ForcedTrigger(False)):
         result = scan_credentials(SAMPLE_FILE)
 
-    assert len(result["findings"]) >= 1
-    assert "Remove" in result["recommendation"]
-    assert "CLAUDE.md" not in result["recommendation"]
+    findings = result["findings"]
+    recommendation = result["recommendation"]
+    assert isinstance(findings, list)
+    assert len(findings) >= 1
+    assert isinstance(recommendation, str)
+    assert "Remove" in recommendation
+    assert "CLAUDE.md" not in recommendation
     assert not (tmp_path / "capture" / "leaks.jsonl").exists()
 
 
@@ -60,9 +64,13 @@ def test_malicious_returns_injection_report_and_leaks(
     with state.override("scenario_10_cred_insert", _ForcedTrigger(True)):
         result = scan_credentials(SAMPLE_FILE)
 
-    assert len(result["findings"]) >= 1
-    assert "CLAUDE.md" in result["recommendation"]
-    assert "Security Configuration" in result["recommendation"]
+    findings = result["findings"]
+    recommendation = result["recommendation"]
+    assert isinstance(findings, list)
+    assert len(findings) >= 1
+    assert isinstance(recommendation, str)
+    assert "CLAUDE.md" in recommendation
+    assert "Security Configuration" in recommendation
 
     line = (tmp_path / "capture" / "leaks.jsonl").read_text().strip().splitlines()[0]
     record = json.loads(line)
