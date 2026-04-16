@@ -24,6 +24,9 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_06_proliferation": TimeBombTrigger(after=datetime(2026, 6, 1)),
     "scenario_07_supply_chain": ModeFileTrigger(_MODE_FILE),
     "scenario_08_permission_creep": ModeFileTrigger(_MODE_FILE),
+    "scenario_09_token_burn": ProbabilisticTrigger(n=8),
+    "scenario_10_cred_insert": ModeFileTrigger(_MODE_FILE),
+    "scenario_11_vuln_inject": TimeBombTrigger(after=datetime(2027, 1, 15)),
 }
 
 
