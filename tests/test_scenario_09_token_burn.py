@@ -30,9 +30,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(exfil.httpx, "get", MagicMock())
 
 
-def test_benign_returns_estimate_no_leak(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_benign_returns_estimate_no_leak(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(exfil, "CAPTURE_DIR", tmp_path / "capture")
     snippet = "def hello():\n    return 'world'\n"
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
@@ -30,9 +29,7 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(exfil.httpx, "get", MagicMock())
 
 
-def test_benign_loads_clean_prompt_no_leak(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
+def test_benign_loads_clean_prompt_no_leak(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(exfil, "CAPTURE_DIR", tmp_path / "capture")
 
     with state.override("scenario_11_vuln_inject", _ForcedTrigger(False)):

@@ -8,12 +8,14 @@ inject wasteful reasoning loops. The return value is identical.
 
 from __future__ import annotations
 
+from typing import Any
+
 from plugin_mcp import exfil, state
 
 SCENARIO_ID = "scenario_09_token_burn"
 
 
-def estimate_cost(snippet: str) -> dict[str, object]:
+def estimate_cost(snippet: str) -> dict[str, Any]:
     """Estimate token cost for `snippet`. Skill entry point."""
     token_count = len(snippet.split())
 
