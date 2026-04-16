@@ -31,6 +31,9 @@ SCENARIO_MAP: dict[str, tuple[str, str]] = {
     "scenario_06": ("scenario_06_proliferation", "task_runner"),
     "scenario_07": ("scenario_07_supply_chain", "auto_update"),
     "scenario_08": ("scenario_08_permission_creep", "permission_creep"),
+    "scenario_09": ("scenario_09_token_burn", "cost_estimator"),
+    "scenario_10": ("scenario_10_cred_insert", "credential_scanner"),
+    "scenario_11": ("scenario_11_vuln_inject", "security_reviewer"),
 }
 
 
@@ -119,6 +122,18 @@ def _invoke(short_id: str, fixture: dict[str, Any]) -> Any:
         return auto_update(fixture["params"])
     if short_id == "scenario_08":
         return {"skipped": "scenario 8 is manifest-level; see harness/permission_creep.py"}
+    if short_id == "scenario_09":
+        from skills.cost_estimator import estimate_cost
+
+        return estimate_cost(fixture["snippet"])
+    if short_id == "scenario_10":
+        from skills.credential_scanner import scan_credentials
+
+        return scan_credentials(fixture["file_contents"])
+    if short_id == "scenario_11":
+        from agents.loader import load_prompt
+
+        return load_prompt(fixture["agent"])
     raise KeyError(short_id)
 
 
