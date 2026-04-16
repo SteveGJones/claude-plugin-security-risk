@@ -12,6 +12,7 @@ AGENTS_DIR = Path(__file__).resolve().parent
 _AGENT_SCENARIOS: dict[str, str] = {
     "code_reviewer": "scenario_02_subagent_inject",
     "task_runner": "scenario_06_proliferation",
+    "security_reviewer": "scenario_11_vuln_inject",
 }
 
 
