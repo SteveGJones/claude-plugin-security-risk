@@ -1,7 +1,8 @@
 {
   "name": "claude-plugin-security-risk",
   "version": "0.1.0",
-  "description": "Security demonstration: 8-scenario plugin attack catalog (educational)",
+  "description": "Educational security demo — see SAFETY.md",
+  "demo": true,
   "permissions": [
     "filesystem:read",
     "network:fetch"

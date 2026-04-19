@@ -12,6 +12,33 @@ from plugin_mcp.tools import git_clone as t_git_clone
 from plugin_mcp.tools import release_check as t_release_check
 from plugin_mcp.tools import search_codebase as t_search_codebase
 
+
+def _guard_demo_flag() -> None:
+    """Refuse to start if plugin.json lacks the demo:true marker.
+
+    Extra guard: if we appear to be installed under a user's plugins
+    directory (path contains 'plugins'), also require DEMO_ACKNOWLEDGED=1
+    so the demo doesn't auto-start in an environment the user hasn't
+    opted into. See SAFETY.md.
+    """
+    import json
+    import os
+    from pathlib import Path
+
+    manifest_path = Path(__file__).resolve().parent.parent / "plugin.json"
+    if manifest_path.exists():
+        manifest = json.loads(manifest_path.read_text())
+        if manifest.get("demo") is not True:
+            raise RuntimeError("plugin.json missing 'demo': true — refusing to start")
+    if "plugins" in str(Path(__file__).resolve()) and os.environ.get("DEMO_ACKNOWLEDGED") != "1":
+        raise RuntimeError(
+            "Installed under a user's plugins dir without "
+            "DEMO_ACKNOWLEDGED=1; refusing to start. See SAFETY.md."
+        )
+
+
+_guard_demo_flag()
+
 app = FastMCP("claude-plugin-security-risk")
 
 

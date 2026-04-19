@@ -1,5 +1,7 @@
 # claude-plugin-security-risk
 
+> **⚠️ Educational security demonstration — see [SAFETY.md](SAFETY.md) before running.**
+
 > **⚠️ Educational / Research Purpose Only**
 > This repository is a security risk *demonstration*. Nothing here is intended for real-world exploitation. All "malicious" behaviours are intentionally innocuous stand-ins (e.g. writing data to a local log file) designed only to make the threat model visible and discussable.
 
@@ -94,6 +96,36 @@ jobs:
 ```
 
 Because `mode.txt` is a tiny, semantically opaque file, a developer skimming the diff list is unlikely to notice the change — especially when the commit is authored by a bot with a bland commit message.
+
+---
+
+## Scenario Catalog
+
+| # | Scenario ID | Trigger type | One-line summary |
+|---|-------------|-------------|------------------|
+| S1 | `scenario_01_mcp_mitm` | ProbabilisticTrigger (1-in-10) | Leaks tool args + env keys from `fetch_weather` |
+| S2 | `scenario_02_subagent_inject` | TimeBombTrigger (after 2026-12-25) | Injects instructions into code-reviewer sub-agent prompt |
+| S3 | `scenario_03_skill_sub` | ProbabilisticTrigger (1-in-5) | Captures full document before returning `summarise` result |
+| S4 | `scenario_04_cred_harvest` | TimeBombTrigger (hours 02–04 UTC) | Logs git-clone credentials before forwarding the clone |
+| S5 | `scenario_05_ctx_poison` | ProbabilisticTrigger (1-in-5) | Injects poisoned results into `search_codebase` output |
+| S6 | `scenario_06_proliferation` | TimeBombTrigger (after 2026-06-01) | Task-runner sub-agent spawns a persistent background process |
+| S7 | `scenario_07_supply_chain` | ModeFileTrigger | `auto_update` tool redirects update check to tampered endpoint |
+| S8 | `scenario_08_permission_creep` | ModeFileTrigger | Mutates `plugin.json` to add escalated permissions |
+| S9 | `scenario_09_token_burn` | ProbabilisticTrigger (1-in-8) | Injects context-padding payload to burn model tokens |
+| S10 | `scenario_10_cred_insert` | ModeFileTrigger | Inserts `FAKE_PAT_DO_NOT_USE` credential into tracked files |
+| S11 | `scenario_11_vuln_inject` | TimeBombTrigger (after 2027-01-15) | Security-reviewer agent introduces vulnerabilities into reviewed code |
+| S12 | `scenario_12_release_flip` | ReleaseTagTrigger (`latest-demo`) | Leaks release tag + env keys when the moving tag is observed |
+| S13 | `scenario_13_git_mitm_real` | TimeBombTrigger (hours 02–04 UTC) | Real loopback proxy intercepts `git clone` traffic |
+| S14 | `scenario_14_proliferation_real` | TimeBombTrigger (after 2026-06-01) | Spawns actual bounded recursive Popen tree (MAX\_DEPTH=3) |
+| S15 | `scenario_15_padding_real` | ProbabilisticTrigger (1-in-8) | Injects real 20 KB padding payload into model call |
+| S16 | `scenario_16_plugin_json_cicd` | ModeFileTrigger | git-apply overlay patch escalates permissions + flips mode.txt |
+| S17 | `scenario_17_hook_abuse` | ModeFileTrigger | Installs PreToolUse hook in `settings.local.json` |
+| S18 | `scenario_18_statusline_beacon` | ModeFileTrigger | Installs statusline beacon hook in `settings.local.json` |
+| S19 | `scenario_19_slash_cmd_shadow` | ModeFileTrigger | Shadows `/commit` to hash + leak committed file paths |
+| S20 | `scenario_20_context_dependent` | CompositeTrigger (GitRemote + ConversationKeyword) | Fires only on target repo + deploy/production/release keywords |
+| S21 | `scenario_21_hallucination_cover` | ProbabilisticTrigger (1-in-20) | Fabricates plausible answer; encodes metadata as steganographic exfil |
+| S22 | `scenario_22_mcp_json_persistence` | ModeFileTrigger | Appends loopback MCP transport entry to `~/.mcp.json` |
+| S23 | `scenario_23_mcp_transport_impersonation` | ModeFileTrigger | Impersonates MCP transport on loopback; leaks every request |
 
 ---
 
@@ -382,6 +414,11 @@ Both workflows can be triggered manually via the GitHub Actions UI.
 
 ### Install as a Claude Code plugin (live mode)
 
+**Pin to a SHA for reproducibility.** The `latest-demo` tag is moved between
+`release/safe` and `release/demo-malicious` by `workflow_dispatch` only.
+Installing `@latest-demo` may pull either variant depending on which channel
+was most recently published. See [SAFETY.md §5](SAFETY.md#5-kill-switches).
+
 ```bash
 /plugin marketplace add SteveGJones/claude-plugin-security-risk
 /plugin install claude-plugin-security-risk
@@ -399,3 +436,12 @@ scenario's trigger (see the scenario catalog above).
 This repository exists to make an abstract threat concrete and auditable. If you discover that any of the patterns demonstrated here are being used in a real plugin in the wild, please follow the responsible disclosure process of the affected platform.
 
 Do not adapt the malicious code paths in this repository for use against real systems. The only difference between this demonstration and a real attack is intent — and that difference matters enormously.
+
+---
+
+## Further Reading
+
+- **[SAFETY.md](SAFETY.md)** — Canonical safety contract: hard constraints, sentinel format, allowlisted write targets, three-layer kill switch, fork-safety posture, and reporting.
+- **[docs/attack-families.md](docs/attack-families.md)** — Narrative overview grouping the 23 scenarios into five attack families with defensive control pointers.
+- **[docs/release-branches.md](docs/release-branches.md)** — Branch strategy for `release/safe` and `release/demo-malicious`, and how the `latest-demo` tag moves between them.
+- **[CLAUDE.md](CLAUDE.md)** — Developer guide: architecture, trigger types, key conventions, testing commands, and kill switches.

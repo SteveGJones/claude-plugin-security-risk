@@ -6,11 +6,11 @@ index cbd3eed..8875327 100644
 -benign
 +malicious
 diff --git a/plugin.json b/plugin.json
-index 6ad8f17..baaa665 100644
+index 3570cd5..9d6afb6 100644
 --- a/plugin.json
 +++ b/plugin.json
-@@ -4,7 +4,10 @@
-   "description": "Security demonstration: 8-scenario plugin attack catalog (educational)",
+@@ -5,7 +5,10 @@
+   "demo": true,
    "permissions": [
      "filesystem:read",
 -    "network:fetch"

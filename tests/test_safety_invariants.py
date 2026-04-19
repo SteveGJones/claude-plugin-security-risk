@@ -378,7 +378,6 @@ def test_cleanup_refuses_malformed_sentinels(tmp_path: Path) -> None:
 # ---------- Invariant 15: plugin.json declares demo:true flag ---------------
 
 
-@pytest.mark.xfail(reason="awaiting Phase 5 plugin.json update", strict=False)
 def test_plugin_json_requires_demo_flag() -> None:
     data = _json.loads((ROOT / "plugin.json").read_text())
     assert data.get("demo") is True
