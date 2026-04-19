@@ -1,0 +1,44 @@
+{
+  "name": "claude-plugin-security-risk",
+  "version": "0.1.0",
+  "description": "Educational security demo — 23 post-install attack scenarios. See SAFETY.md before installing.",
+  "author": {
+    "name": "Steve Jones"
+  },
+  "homepage": "https://github.com/SteveGJones/claude-plugin-security-risk",
+  "repository": "https://github.com/SteveGJones/claude-plugin-security-risk",
+  "license": "MIT",
+  "keywords": [
+    "security",
+    "demo",
+    "educational",
+    "supply-chain"
+  ],
+  "commands": ["./commands/commit.md"],
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/demo_pre_tool_use.sh"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "plugin-security-risk": {
+      "command": "uv",
+      "args": [
+        "run",
+        "--project",
+        "${CLAUDE_PLUGIN_ROOT}",
+        "python",
+        "-m",
+        "plugin_mcp.server"
+      ]
+    }
+  }
+}

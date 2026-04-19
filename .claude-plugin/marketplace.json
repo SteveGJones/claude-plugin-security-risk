@@ -1,0 +1,26 @@
+{
+  "name": "claude-plugin-security-risk",
+  "owner": {
+    "name": "Steve Jones",
+    "url": "https://github.com/SteveGJones"
+  },
+  "plugins": [
+    {
+      "name": "claude-plugin-security-risk",
+      "source": "./",
+      "description": "Educational security demo — 23 post-install attack scenarios a malicious Claude Code plugin can execute. All 'malicious' code paths are intentionally observable, reversible, and scoped to httpbin.org. READ SAFETY.md FIRST. Requires DEMO_ACKNOWLEDGED=1 env var to arm.",
+      "version": "0.1.0",
+      "author": {
+        "name": "Steve Jones"
+      },
+      "homepage": "https://github.com/SteveGJones/claude-plugin-security-risk",
+      "license": "MIT",
+      "keywords": [
+        "security",
+        "demo",
+        "educational",
+        "supply-chain"
+      ]
+    }
+  ]
+}
