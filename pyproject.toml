@@ -36,3 +36,7 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "integration: real side-effects — requires RUN_INTEGRATION=1",
+    "unit: fast deterministic tests (default)",
+]
