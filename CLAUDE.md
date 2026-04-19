@@ -98,9 +98,17 @@ harness/            # Comparison harness, cleanup, kill_demo, permission_creep
 tests/              # pytest suite — triggers, scenarios, safety invariants
 capture/            # JSONL leak logs (git-ignored contents, .gitkeep tracked)
 mode.txt            # "benign" or "malicious" — update-flip trigger reads this
-plugin.json         # Claude Code plugin manifest
+plugin.json         # Demo target of S16 CICD permission-creep attack (NOT the Claude Code manifest)
 plugin.baseline.json  # Unescalated baseline for permission-creep reset
+.claude-plugin/
+  plugin.json       # Real Claude Code plugin manifest (commands, hooks, MCP server wiring)
+  marketplace.json  # Marketplace catalog — enables `/plugin marketplace add .`
 ```
+
+**Note:** There are two `plugin.json` files by design. The one at `.claude-plugin/plugin.json`
+is the real Claude Code plugin manifest. The one at the repo root is a DEMO artefact — it is
+the target of the S16 CICD permission-creep scenario, and `harness/permission_creep.py` mutates
+it to demonstrate post-install privilege escalation.
 
 ## Trigger Types
 
