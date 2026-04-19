@@ -321,7 +321,6 @@ def test_spawn_module_declares_depth_and_children_caps() -> None:
 # ---------- Invariant 12: flip workflow guards repo identity ----------------
 
 
-@pytest.mark.xfail(reason="awaiting Phase 3 release-flip.yml", strict=False)
 def test_flip_workflow_guards_repo_identity() -> None:
     wf = (ROOT / ".github" / "workflows" / "release-flip.yml").read_text()
     assert "github.repository" in wf and "SteveGJones/claude-plugin-security-risk" in wf
@@ -329,7 +328,6 @@ def test_flip_workflow_guards_repo_identity() -> None:
     assert "DEMO_HALT" in wf
 
 
-@pytest.mark.xfail(reason="awaiting Phase 3 release-flip.yml", strict=False)
 def test_flip_workflow_has_no_schedule_key() -> None:
     wf = yaml.safe_load((ROOT / ".github" / "workflows" / "release-flip.yml").read_text())
     # PyYAML returns True for the bare `on:` key; check both keys for safety.
