@@ -36,6 +36,7 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_13_git_mitm_real": TimeBombTrigger(hours=(2, 4)),
     "scenario_14_proliferation_real": TimeBombTrigger(after=datetime(2026, 6, 1)),
     "scenario_15_padding_real": ProbabilisticTrigger(n=8),
+    "scenario_17_hook_abuse": ModeFileTrigger(_MODE_FILE),
 }
 
 

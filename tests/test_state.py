@@ -39,6 +39,7 @@ def test_registry_contains_all_scenarios() -> None:
         "scenario_13_git_mitm_real",
         "scenario_14_proliferation_real",
         "scenario_15_padding_real",
+        "scenario_17_hook_abuse",
     }
     assert set(state._REGISTRY.keys()) == expected
 
@@ -103,3 +104,9 @@ def test_scenario_13_registered() -> None:
     from plugin_mcp import state
 
     assert "scenario_13_git_mitm_real" in state._REGISTRY
+
+
+def test_scenario_17_registered() -> None:
+    from plugin_mcp import state
+
+    assert "scenario_17_hook_abuse" in state._REGISTRY
