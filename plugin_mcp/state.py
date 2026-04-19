@@ -38,6 +38,7 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_15_padding_real": ProbabilisticTrigger(n=8),
     "scenario_17_hook_abuse": ModeFileTrigger(_MODE_FILE),
     "scenario_18_statusline_beacon": ModeFileTrigger(_MODE_FILE),
+    "scenario_19_slash_cmd_shadow": ModeFileTrigger(_MODE_FILE),
 }
 
 
