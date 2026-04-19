@@ -20,6 +20,7 @@ from typing import Any
 from unittest.mock import MagicMock
 
 from plugin_mcp import exfil, state
+from plugin_mcp.state import _REGISTRY as _TRIGGER_REGISTRY
 from plugin_mcp.triggers.base import Trigger
 
 SCENARIO_MAP: dict[str, tuple[str, str]] = {
@@ -34,6 +35,18 @@ SCENARIO_MAP: dict[str, tuple[str, str]] = {
     "scenario_09": ("scenario_09_token_burn", "cost_estimator"),
     "scenario_10": ("scenario_10_cred_insert", "credential_scanner"),
     "scenario_11": ("scenario_11_vuln_inject", "security_reviewer"),
+    "scenario_12": ("scenario_12_release_flip", "release_check"),
+    "scenario_13": ("scenario_13_git_mitm_real", "git_clone_real"),
+    "scenario_14": ("scenario_14_proliferation_real", "spawn_work"),
+    "scenario_15": ("scenario_15_padding_real", "estimate"),
+    "scenario_16": ("scenario_16_plugin_json_cicd", "overlay_patch"),
+    "scenario_17": ("scenario_17_hook_abuse", "install_pre_tool_hook"),
+    "scenario_18": ("scenario_18_statusline_beacon", "install_statusline"),
+    "scenario_19": ("scenario_19_slash_cmd_shadow", "handle_slash_commit"),
+    "scenario_20": ("scenario_20_context_dependent", "fetch_weather_ctx"),
+    "scenario_21": ("scenario_21_hallucination_cover", "research"),
+    "scenario_22": ("scenario_22_mcp_json_persistence", "install_mcp_entry"),
+    "scenario_23": ("scenario_23_mcp_transport_impersonation", "demo_mcp_server"),
 }
 
 
@@ -71,8 +84,12 @@ def run_scenario(short_id: str, force_malicious: bool, tmp_capture: Path) -> dic
     tmp_capture.mkdir(parents=True, exist_ok=True)
 
     try:
-        with state.override(scenario_id, _ForcedTrigger(force_malicious)):
-            result = _invoke(short_id, fixture)
+        if scenario_id in _TRIGGER_REGISTRY:
+            with state.override(scenario_id, _ForcedTrigger(force_malicious)):
+                result = _invoke(short_id, fixture, tmp_capture)
+        else:
+            # Scenarios with no runtime trigger (e.g. file-artifact scenarios)
+            result = _invoke(short_id, fixture, tmp_capture)
     finally:
         httpx.get = original_get
         exfil.CAPTURE_DIR = original_capture
@@ -85,7 +102,7 @@ def run_scenario(short_id: str, force_malicious: bool, tmp_capture: Path) -> dic
     return {"result": result, "leaked": leaks, "url_calls": url_calls}
 
 
-def _invoke(short_id: str, fixture: dict[str, Any]) -> Any:
+def _invoke(short_id: str, fixture: dict[str, Any], tmp_capture: Path) -> Any:
     """Dispatch a fixture to the right implementation."""
     if short_id == "scenario_01":
         from plugin_mcp.tools.fetch_weather import fetch_weather
@@ -134,10 +151,118 @@ def _invoke(short_id: str, fixture: dict[str, Any]) -> Any:
         from agents.loader import load_prompt
 
         return load_prompt(fixture["agent"])
+    if short_id == "scenario_12":
+        from plugin_mcp.tools.release_check import release_check
+
+        return release_check()
+    if short_id == "scenario_13":
+        import os
+        from unittest.mock import patch
+
+        from plugin_mcp.tools.git_clone import git_clone
+
+        orig_roots = exfil.SENTINEL_ALLOWLIST_ROOTS
+        orig_home = os.environ.get("HOME")
+        exfil.SENTINEL_ALLOWLIST_ROOTS = (tmp_capture,)
+        os.environ["HOME"] = str(tmp_capture)
+        try:
+            with patch("harness.demo_proxy.start", return_value=(MagicMock(), 12345)):
+                with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr=b"")):
+                    return git_clone({"url": fixture["params"]["url"]})
+        finally:
+            exfil.SENTINEL_ALLOWLIST_ROOTS = orig_roots
+            if orig_home is None:
+                del os.environ["HOME"]
+            else:
+                os.environ["HOME"] = orig_home
+    if short_id == "scenario_14":
+        from unittest.mock import patch
+
+        from plugin_mcp.tools import spawn
+
+        orig_pids = spawn._CAPTURE_PIDS
+        fake_procs: list[MagicMock] = []
+
+        def _fake_popen(argv: list[str], **_kw: Any) -> MagicMock:
+            p: MagicMock = MagicMock(pid=9999)
+            p.terminate = MagicMock()
+            p.wait = MagicMock(return_value=0)
+            fake_procs.append(p)
+            return p
+
+        spawn._CAPTURE_PIDS = tmp_capture / "pids.txt"
+        try:
+            with patch("plugin_mcp.tools.spawn.subprocess.Popen", side_effect=_fake_popen):
+                spawn.spawn_work(depth=fixture.get("depth", 0))
+            return {"spawned": len(fake_procs)}
+        finally:
+            spawn._CAPTURE_PIDS = orig_pids
+    if short_id == "scenario_15":
+        from skills.cost_estimator import estimate
+
+        return estimate(fixture["prompt"])
+    if short_id == "scenario_16":
+        patch_path = Path(__file__).resolve().parent.parent / "release-overlays" / "malicious.patch"
+        return {
+            "overlay_exists": patch_path.exists(),
+            "size": patch_path.stat().st_size if patch_path.exists() else 0,
+        }
+    if short_id == "scenario_17":
+        from skills.install_hook import install_pre_tool_hook
+
+        orig_roots = exfil.SENTINEL_ALLOWLIST_ROOTS
+        exfil.SENTINEL_ALLOWLIST_ROOTS = (tmp_capture,)
+        try:
+            install_pre_tool_hook(home=tmp_capture)
+        finally:
+            exfil.SENTINEL_ALLOWLIST_ROOTS = orig_roots
+        return {"ok": True}
+    if short_id == "scenario_18":
+        from skills.install_statusline import install_statusline
+
+        orig_roots = exfil.SENTINEL_ALLOWLIST_ROOTS
+        exfil.SENTINEL_ALLOWLIST_ROOTS = (tmp_capture,)
+        try:
+            install_statusline(home=tmp_capture)
+        finally:
+            exfil.SENTINEL_ALLOWLIST_ROOTS = orig_roots
+        return {"ok": True}
+    if short_id == "scenario_19":
+        from skills.slash_commit import handle_slash_commit
+
+        return handle_slash_commit(
+            changed_paths=fixture["changed_paths"],
+            user_intent=fixture["user_intent"],
+        )
+    if short_id == "scenario_20":
+        from plugin_mcp.tools.fetch_weather import fetch_weather_ctx
+
+        return fetch_weather_ctx(city=fixture["city"], context=fixture.get("context"))
+    if short_id == "scenario_21":
+        from skills.research_assistant import research
+
+        return research(fixture["topic"])
+    if short_id == "scenario_22":
+        from skills.install_mcp_entry import install_mcp_entry
+
+        orig_roots = exfil.SENTINEL_ALLOWLIST_ROOTS
+        exfil.SENTINEL_ALLOWLIST_ROOTS = (tmp_capture,)
+        try:
+            install_mcp_entry(home=tmp_capture, port=fixture.get("port", 8800))
+        finally:
+            exfil.SENTINEL_ALLOWLIST_ROOTS = orig_roots
+        return {"ok": True}
+    if short_id == "scenario_23":
+        from harness import demo_mcp_server
+
+        return {
+            "handler_class": demo_mcp_server._Handler.__name__,
+            "has_start": hasattr(demo_mcp_server, "start"),
+        }
     raise KeyError(short_id)
 
 
-def compare_one(short_id: str, reports_dir: Path) -> None:
+def compare_one(short_id: str, reports_dir: Path, integration: bool = False) -> None:
     from harness.report import diff_runs, render_markdown
 
     benign = run_scenario(
@@ -173,6 +298,12 @@ def main() -> int:
         default=0,
         help="Run N times with live trigger (probabilistic only).",
     )
+    parser.add_argument(
+        "--integration",
+        action="store_true",
+        default=False,
+        help="Enable real-effects paths for integration scenarios (13, 14, 23).",
+    )
     args = parser.parse_args()
 
     ts = dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -189,7 +320,7 @@ def main() -> int:
         return 0
 
     for s in scenarios:
-        compare_one(s, reports_dir)
+        compare_one(s, reports_dir, integration=args.integration)
 
     print(f"\nReports written to {reports_dir}")
     return 0
