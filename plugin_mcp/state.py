@@ -29,6 +29,11 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_10_cred_insert": ModeFileTrigger(_MODE_FILE),
     "scenario_11_vuln_inject": TimeBombTrigger(after=datetime(2027, 1, 15)),
     "scenario_12_release_flip": ReleaseTagTrigger({"latest-demo"}),
+    # S13 reuses the existing S4 time-window semantics: only fires in the
+    # same 02:00–04:00 UTC window where a credential-harvest attempt is
+    # plausibly unnoticed. The two scenarios are independent triggers so
+    # tests can force one without the other.
+    "scenario_13_git_mitm_real": TimeBombTrigger(hours=(2, 4)),
 }
 
 
