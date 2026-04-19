@@ -12,7 +12,7 @@ lint:
 	uv run ruff format --check .
 
 typecheck:
-	uv run mypy mcp agents skills harness tests
+	uv run mypy plugin_mcp agents skills harness tests
 
 cleanup:
 	uv run python -m harness.cleanup_sentinels

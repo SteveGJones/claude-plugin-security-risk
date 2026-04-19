@@ -21,9 +21,14 @@ def validate(root: Path) -> list[str]:
     for wf in wf_dir.glob("*.yml"):
         data = yaml.safe_load(wf.read_text()) or {}
         on = data.get(True, data.get("on", {}))
+        text = wf.read_text()
         if isinstance(on, dict) and "schedule" in on and wf.name not in _SCHEDULE_ALLOWED:
             errors.append(f"{wf.name}: forbidden 'schedule' trigger")
-        text = wf.read_text()
+        # Scheduled demo workflows must carry the same repo-identity guard as
+        # release-flip, so forks with Actions enabled do not auto-run them.
+        if isinstance(on, dict) and "schedule" in on and wf.name in _SCHEDULE_ALLOWED:
+            if "SteveGJones/claude-plugin-security-risk" not in text:
+                errors.append(f"{wf.name}: missing repo-identity guard on scheduled workflow")
         if wf.name == "release-flip.yml":
             if "DEMO_FLIP_CONFIRM" not in text:
                 errors.append(f"{wf.name}: missing DEMO_FLIP_CONFIRM guard")

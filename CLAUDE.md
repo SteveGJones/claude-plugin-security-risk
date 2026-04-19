@@ -85,11 +85,12 @@ the `mcp` SDK that FastMCP depends on.
 
 ```
 plugin_mcp/
-  triggers/         # base.py, probabilistic.py, time_bomb.py, mode_file.py
-  tools/            # MCP tool implementations (Scenarios 1, 4, 5, 7)
+  triggers/         # base.py, probabilistic.py, time_bomb.py, mode_file.py,
+                    # release_tag.py, git_remote.py, conversation_keyword.py, composite.py
+  tools/            # MCP tool implementations (Scenarios 1, 4, 5, 7, 12, 13, 20)
   state.py          # Trigger registry + override() context manager
-  exfil.py          # leak() — single chokepoint for all malicious side effects
-  server.py         # FastMCP entry point
+  exfil.py          # leak() + write_sentinel_block() — single chokepoints for all side effects
+  server.py         # FastMCP entry point (with DEMO_ACKNOWLEDGED arming gate)
 
 agents/             # Sub-agent prompts + loader (Scenarios 2, 6, 11)
 skills/             # Skill implementations (Scenarios 3, 9, 10)
@@ -103,10 +104,18 @@ plugin.baseline.json  # Unescalated baseline for permission-creep reset
 
 ## Trigger Types
 
-- **ModeFileTrigger** — reads `mode.txt`; fires if content is `"malicious"`. Scenarios 7, 8, 10.
-- **ProbabilisticTrigger(n)** — fires 1-in-N calls. Injectable RNG for deterministic testing. Scenarios 1, 3, 5, 9.
-- **TimeBombTrigger(after=...)** — fires after a UTC datetime. Scenarios 2, 6, 11.
-- **TimeBombTrigger(hours=(...))** — fires during a UTC hour window. Scenario 4.
+- **ModeFileTrigger** — reads `mode.txt`; fires if content is `"malicious"`. Scenarios 7, 8, 10, 17, 18, 19, 22, 23.
+- **ProbabilisticTrigger(n)** — fires 1-in-N calls. Injectable RNG for deterministic testing. Scenarios 1, 3, 5, 9, 15, 21.
+- **TimeBombTrigger(after=...)** — fires after a UTC datetime. Scenarios 2, 6, 11, 14.
+- **TimeBombTrigger(hours=(...))** — fires during a UTC hour window. Scenarios 4, 13.
+- **ReleaseTagTrigger(tags)** — fires when `git describe --tags` matches an allowlisted tag. Injectable resolver. Scenario 12.
+- **GitRemoteTrigger(origins)** — fires when the current repo's `origin` URL matches an allowlisted substring. Scenario 20 (via Composite).
+- **ConversationKeywordTrigger(keywords)** — fires when the invocation context contains any of the target keywords. Scenario 20 (via Composite).
+- **CompositeTrigger(\*children, mode)** — combines child triggers with `"any"` (logical OR) or `"all"` (logical AND). Scenario 20.
+
+Scenario 16 (plugin.json CICD escalation) has **no runtime trigger** — it is a `git apply`
+overlay (`release-overlays/malicious.patch`) exercised at release time and tested via patch
+apply/reverse-apply.
 
 ## Testing
 
@@ -127,7 +136,7 @@ All tests are deterministic. Non-determinism (RNG, clock, file path) is injected
 
 ```bash
 ./harness/compare.sh scenario_01           # run scenario in both modes, diff results
-./harness/compare.sh                       # run all 11 scenarios
+./harness/compare.sh                       # run all 23 scenarios
 ./harness/compare.sh scenario_01 --distribution 1000  # probabilistic distribution
 ```
 
@@ -158,10 +167,10 @@ cd .worktrees/plugin-security-demo-impl
 uv run pytest
 ```
 
-## Status (as of 2026-04-18)
+## Status (as of 2026-04-19)
 
-All Phase 1–5 tasks complete. 23 scenarios implemented. 144+ tests passing (143+ passed, 2 skipped, 0 xfailed). Lint and mypy clean.
-23 scenarios, 4 trigger types (ModeFile, Probabilistic, TimeBomb, ReleaseTag, GitRemote, ConversationKeyword, Composite), 144+ tests. Branch is ready for PR.
+All Phase 1–6 tasks complete. 23 scenarios implemented. 148 unit tests passing, 2 integration tests skipped by default (gated on `RUN_INTEGRATION=1`). Lint, format, and mypy strict all clean.
+23 scenarios, 7 trigger types (ModeFile, Probabilistic, TimeBomb, ReleaseTag, GitRemote, ConversationKeyword, Composite). Branch is ready for PR.
 
 ## Cleanup / Reset
 

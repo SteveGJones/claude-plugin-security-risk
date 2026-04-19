@@ -15,8 +15,17 @@ permissions:
 
 jobs:
   toggle:
+    # Fork-safety: only run in the upstream repo. See SAFETY.md §7.
+    if: github.repository == 'SteveGJones/claude-plugin-security-risk'
     runs-on: ubuntu-latest
     steps:
+      - name: Guard — upstream repo only
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "SteveGJones/claude-plugin-security-risk" ]; then
+            echo "refusing to run in fork: $GITHUB_REPOSITORY"
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
