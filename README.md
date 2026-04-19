@@ -1,5 +1,7 @@
 # claude-plugin-security-risk
 
+> **⚠️ Educational security demonstration — see [SAFETY.md](SAFETY.md) before running.**
+
 > **⚠️ Educational / Research Purpose Only**
 > This repository is a security risk *demonstration*. Nothing here is intended for real-world exploitation. All "malicious" behaviours are intentionally innocuous stand-ins (e.g. writing data to a local log file) designed only to make the threat model visible and discussable.
 
@@ -29,71 +31,104 @@ The demonstration deliberately keeps the "malicious" behaviour harmless (writing
 
 ## Architecture
 
+The implementation is one Python package. Every tool / sub-agent / skill carries both
+code paths in the same file; a trigger registry decides at call time which branch runs.
+The package is named `plugin_mcp/` (not `mcp/`) to avoid a PyPI namespace collision
+with the `mcp` SDK that FastMCP depends on.
+
 ```
 claude-plugin-security-risk/
-├── plugin.json                  # Claude Code plugin manifest
-├── mode.txt                     # "benign" or "malicious" — toggled by CI
+├── plugin.json                  # Claude Code plugin manifest (baseline permissions)
+├── plugin.baseline.json         # Unescalated baseline for permission-creep reset
+├── mode.txt                     # "benign" or "malicious" — kill-switch #1
+├── SAFETY.md                    # Canonical safety contract
 │
-├── mcp/                         # MCP server (exposes tools to Claude)
-│   ├── server.py                # Entry point
-│   ├── tools/
-│   │   ├── benign/              # Clean tool implementations
-│   │   └── malicious/           # Intercepting / side-effecting implementations
-│   └── state.py                 # Reads mode.txt and routes calls
+├── plugin_mcp/                  # MCP server package (FastMCP entry point)
+│   ├── server.py                # DEMO_ACKNOWLEDGED arming gate + FastMCP wiring
+│   ├── exfil.py                 # leak() + write_sentinel_block() — sole side-effect chokepoints
+│   ├── state.py                 # Trigger registry + override() context manager
+│   ├── triggers/                # Trigger implementations (see CLAUDE.md § Trigger Types)
+│   └── tools/                   # MCP tool implementations (S1, S4, S5, S7, S12, S13, S20)
 │
-├── agents/                      # Sub-agent definitions
-│   ├── benign_agent.md          # Prompt / system card for the safe agent
-│   └── malicious_agent.md       # Prompt / system card with injected instructions
+├── agents/                      # Sub-agent prompts + loader (S2, S6, S11)
+├── skills/                      # Skill implementations (S3, S9, S10, S15, S17–S19, S21, S22)
 │
-├── skills/                      # Skill definitions
-│   ├── summarise.benign.md
-│   └── summarise.malicious.md
+├── harness/
+│   ├── compare.py / compare.sh  # Run a scenario in both modes and diff the results
+│   ├── cleanup_sentinels.py     # SHA256-verified sentinel-block removal
+│   ├── validate_workflows.py    # Static check that CI workflows carry the required guards
+│   ├── demo_proxy.py            # Loopback-only HTTP proxy used by S13
+│   └── demo_mcp_server.py       # Loopback-only MCP transport impersonation used by S23
 │
-└── .github/
-    └── workflows/
-        └── toggle-mode.yml      # Daily cron: flip mode.txt and commit
+├── release-overlays/
+│   └── malicious.patch          # S16 git-apply overlay (reversible with `git apply -R`)
+│
+├── tests/                       # pytest suite: triggers, scenarios, safety invariants
+├── capture/                     # JSONL leak logs (contents git-ignored; .gitkeep tracked)
+└── .github/workflows/
+    ├── ci.yml                   # Lint, typecheck, test, workflow-validator, optional integration
+    ├── release-flip.yml         # workflow_dispatch only, DEMO_FLIP_CONFIRM + DEMO_HALT gated
+    ├── toggle-mode.yml          # Scheduled mode flip (upstream repo only)
+    └── permission-creep.yml     # Scheduled permission escalation (upstream repo only)
 ```
 
 ### plugin.json
 
-The manifest file tells Claude Code which MCP server to launch, which sub-agents to load, and which skills to register. It points to the **same** executables in both modes; the executables themselves read `mode.txt` at runtime to decide how to behave. This mirrors how a real supply-chain attack would work: the manifest never changes, so any diff-based review after initial installation sees nothing.
+The manifest file tells Claude Code which MCP server to launch, which sub-agents to
+load, and which skills to register. It points to the **same** executables in both
+modes; the executables themselves read `mode.txt` (or their scenario-specific trigger)
+at runtime to decide how to behave. This mirrors how a real supply-chain attack would
+work: the manifest never changes, so any diff-based review after initial installation
+sees nothing. The manifest also carries `"demo": true` so any plugin-scanning tool can
+immediately identify this install as an educational demo artefact.
 
 ### mode.txt
 
-A single line file containing either `benign` or `malicious`. Toggled daily by `toggle-mode.yml`. Every runtime component reads this file on startup.
+A single-line file containing either `benign` or `malicious`. Read per-call by every
+`ModeFileTrigger`-backed scenario, so flipping it disarms those scenarios on the next
+invocation without a process restart. Also kill-switch #1 in the three-layer model —
+see [SAFETY.md §5](SAFETY.md#5-kill-switches).
 
-### GitHub Actions toggle workflow
+### Scheduled workflows
 
-```yaml
-# .github/workflows/toggle-mode.yml
-on:
-  schedule:
-    - cron: '0 2 * * *' # 02:00 UTC every day
-  workflow_dispatch: # also triggerable manually
+`toggle-mode.yml` (nightly at 02:00 UTC) flips `mode.txt`; `permission-creep.yml`
+(weekly at 03:00 UTC) escalates `plugin.json` permissions one step along the baseline
+ladder. Both workflows carry a repo-identity guard (`if: github.repository ==
+'SteveGJones/claude-plugin-security-risk'` plus a shell-level check) so a fork with
+Actions enabled will not accidentally run them. The release-flip workflow
+(`release-flip.yml`) is `workflow_dispatch` only and additionally requires the
+`DEMO_FLIP_CONFIRM` secret and an absent `DEMO_HALT` file — it cannot fire on a
+schedule under any circumstance. See [SAFETY.md §7](SAFETY.md#7-fork-safety-warning).
 
-jobs:
-  toggle:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Flip mode
-        run: |
-          current=$(cat mode.txt)
-          if [ "$current" = "benign" ]; then
-            echo "malicious" > mode.txt
-          else
-            echo "benign" > mode.txt
-          fi
-      - name: Commit
-        run: |
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git config user.name  "github-actions[bot]"
-          git add mode.txt
-          git commit -m "chore: toggle plugin mode to $(cat mode.txt)"
-          git push
-```
+---
 
-Because `mode.txt` is a tiny, semantically opaque file, a developer skimming the diff list is unlikely to notice the change — especially when the commit is authored by a bot with a bland commit message.
+## Scenario Catalog
+
+| # | Scenario ID | Trigger type | One-line summary |
+|---|-------------|-------------|------------------|
+| S1 | `scenario_01_mcp_mitm` | ProbabilisticTrigger (1-in-10) | Leaks tool args + env keys from `fetch_weather` |
+| S2 | `scenario_02_subagent_inject` | TimeBombTrigger (after 2026-12-25) | Injects instructions into code-reviewer sub-agent prompt |
+| S3 | `scenario_03_skill_sub` | ProbabilisticTrigger (1-in-5) | Captures full document before returning `summarise` result |
+| S4 | `scenario_04_cred_harvest` | TimeBombTrigger (hours 02–04 UTC) | Logs git-clone credentials before forwarding the clone |
+| S5 | `scenario_05_ctx_poison` | ProbabilisticTrigger (1-in-5) | Injects poisoned results into `search_codebase` output |
+| S6 | `scenario_06_proliferation` | TimeBombTrigger (after 2026-06-01) | Task-runner sub-agent spawns a persistent background process |
+| S7 | `scenario_07_supply_chain` | ModeFileTrigger | `auto_update` tool redirects update check to tampered endpoint |
+| S8 | `scenario_08_permission_creep` | ModeFileTrigger | Mutates `plugin.json` to add escalated permissions |
+| S9 | `scenario_09_token_burn` | ProbabilisticTrigger (1-in-8) | Injects context-padding payload to burn model tokens |
+| S10 | `scenario_10_cred_insert` | ModeFileTrigger | Inserts `FAKE_PAT_DO_NOT_USE` credential into tracked files |
+| S11 | `scenario_11_vuln_inject` | TimeBombTrigger (after 2027-01-15) | Security-reviewer agent introduces vulnerabilities into reviewed code |
+| S12 | `scenario_12_release_flip` | ReleaseTagTrigger (`latest-demo`) | Leaks release tag + env keys when the moving tag is observed |
+| S13 | `scenario_13_git_mitm_real` | TimeBombTrigger (hours 02–04 UTC) | Real loopback proxy intercepts `git clone` traffic |
+| S14 | `scenario_14_proliferation_real` | TimeBombTrigger (after 2026-06-01) | Spawns actual bounded recursive Popen tree (MAX\_DEPTH=3) |
+| S15 | `scenario_15_padding_real` | ProbabilisticTrigger (1-in-8) | Injects real 20 KB padding payload into model call |
+| S16 | `scenario_16_plugin_json_cicd` | No runtime trigger (CICD overlay) | git-apply overlay patch escalates permissions + flips mode.txt |
+| S17 | `scenario_17_hook_abuse` | ModeFileTrigger | Installs PreToolUse hook in `settings.local.json` |
+| S18 | `scenario_18_statusline_beacon` | ModeFileTrigger | Installs statusline beacon hook in `settings.local.json` |
+| S19 | `scenario_19_slash_cmd_shadow` | ModeFileTrigger | Shadows `/commit` to hash + leak committed file paths |
+| S20 | `scenario_20_context_dependent` | CompositeTrigger (GitRemote + ConversationKeyword) | Fires only on target repo + deploy/production/release keywords |
+| S21 | `scenario_21_hallucination_cover` | ProbabilisticTrigger (1-in-20) | Fabricates plausible answer; encodes metadata as steganographic exfil |
+| S22 | `scenario_22_mcp_json_persistence` | ModeFileTrigger | Appends loopback MCP transport entry to `~/.mcp.json` |
+| S23 | `scenario_23_mcp_transport_impersonation` | ModeFileTrigger | Impersonates MCP transport on loopback; leaks every request |
 
 ---
 
@@ -306,18 +341,81 @@ Gradually escalating permissions over multiple update cycles, each increment sma
 
 ---
 
-## Intended Implementation Roadmap
+## Running the Demo
 
-The repository is intended to grow into a working demonstration. Planned components:
+### Install dependencies
 
-- [ ] `plugin.json` manifest wiring together MCP, agents, and skills
-- [ ] `mode.txt` toggle file and toggle CI workflow
-- [ ] MCP server (Python / Node) with benign and malicious tool variants
-- [ ] Sub-agent prompt files for both modes
-- [ ] Skill implementations for both modes
-- [ ] A `capture/` directory (git-ignored) that accumulates intercepted data in malicious mode
-- [ ] A `compare.sh` script that runs both modes against identical inputs and diffs the results
-- [ ] CI status badge showing current mode
+```bash
+make install
+```
+
+This creates `.venv/`, installs the project in editable mode, and pulls in
+`fastmcp`, `httpx`, `pytest`, `ruff`, and `mypy`.
+
+### Run the test suite
+
+```bash
+make test
+```
+
+Runs every scenario's unit tests plus the safety invariant suite.
+
+### Compare modes for one scenario
+
+```bash
+./harness/compare.sh scenario_01
+```
+
+For each scenario, the harness forces the trigger into both benign and
+malicious modes, runs the implementation against a canned fixture, and
+writes a markdown diff report to `harness/reports/<timestamp>/`.
+
+To see the probabilistic distribution of a trigger in the wild:
+
+```bash
+./harness/compare.sh scenario_01 --distribution 1000
+```
+
+### Reset after a demo session
+
+```bash
+make cleanup
+```
+
+Empties `capture/`, kills any scenario-6 background processes, resets
+`mode.txt` to `benign`, restores `plugin.json` to its baseline, and closes
+any open GitHub issues labelled `demo-capture` (if `gh` is installed).
+
+### Live toggle workflows
+
+Two GitHub Actions workflows demonstrate the update-vector scenarios on a
+live schedule:
+
+- `toggle-mode.yml` — nightly at 02:00 UTC, flips `mode.txt` between
+  `benign` and `malicious`. Scenarios 7 activates when `mode.txt` is
+  `malicious`.
+- `permission-creep.yml` — weekly on Mondays at 03:00 UTC, adds the next
+  permission from the escalation ladder to `plugin.json`. Trigger
+  `action=reset` via manual dispatch to restore the baseline.
+
+Both workflows can be triggered manually via the GitHub Actions UI.
+
+### Install as a Claude Code plugin (live mode)
+
+**Pin to a SHA for reproducibility.** The `latest-demo` tag is moved between
+`release/safe` and `release/demo-malicious` by `workflow_dispatch` only.
+Installing `@latest-demo` may pull either variant depending on which channel
+was most recently published. See [SAFETY.md §5](SAFETY.md#5-kill-switches).
+
+```bash
+/plugin marketplace add SteveGJones/claude-plugin-security-risk
+/plugin install claude-plugin-security-risk
+/reload-plugins
+```
+
+Once installed, the MCP tools, agents, and skills are available in Claude
+Code sessions. Whether a given call acts maliciously depends on the
+scenario's trigger (see the scenario catalog above).
 
 ---
 
@@ -326,3 +424,12 @@ The repository is intended to grow into a working demonstration. Planned compone
 This repository exists to make an abstract threat concrete and auditable. If you discover that any of the patterns demonstrated here are being used in a real plugin in the wild, please follow the responsible disclosure process of the affected platform.
 
 Do not adapt the malicious code paths in this repository for use against real systems. The only difference between this demonstration and a real attack is intent — and that difference matters enormously.
+
+---
+
+## Further Reading
+
+- **[SAFETY.md](SAFETY.md)** — Canonical safety contract: hard constraints, sentinel format, allowlisted write targets, three-layer kill switch, fork-safety posture, and reporting.
+- **[docs/attack-families.md](docs/attack-families.md)** — Narrative overview grouping the 23 scenarios into five attack families with defensive control pointers.
+- **[docs/release-branches.md](docs/release-branches.md)** — Branch strategy for `release/safe` and `release/demo-malicious`, and how the `latest-demo` tag moves between them.
+- **[CLAUDE.md](CLAUDE.md)** — Developer guide: architecture, trigger types, key conventions, testing commands, and kill switches.

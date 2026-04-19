@@ -1,0 +1,100 @@
+name: Demo Release Flip
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: Which release channel to rebuild and tag as latest-demo
+        type: choice
+        options: [safe, demo-malicious]
+        required: true
+      confirm:
+        description: Type DEMO_FLIP_CONFIRM to proceed
+        type: string
+        required: true
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  flip:
+    if: github.repository == 'SteveGJones/claude-plugin-security-risk'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Identity guard
+        run: |
+          if [ "${GITHUB_REPOSITORY}" != "SteveGJones/claude-plugin-security-risk" ]; then
+            echo "Refusing to run outside demo repo"; exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: main
+
+      - name: Halt guard
+        run: |
+          if [ -f DEMO_HALT ]; then
+            echo "DEMO_HALT file present — aborting flip"; exit 1
+          fi
+
+      - name: Confirm guard
+        run: |
+          if [ "${{ github.event.inputs.confirm }}" != "DEMO_FLIP_CONFIRM" ]; then
+            echo "Confirm token mismatch"; exit 1
+          fi
+          case "${{ github.event.inputs.target }}" in
+            safe|demo-malicious) ;;
+            *) echo "Invalid target"; exit 1 ;;
+          esac
+
+      - name: Configure git
+        run: |
+          git config user.name "demo-flip-bot"
+          git config user.email "demo-flip-bot@users.noreply.github.com"
+
+      - name: Rebuild target branch
+        run: |
+          target="${{ github.event.inputs.target }}"
+          branch="release/${target}"
+          git checkout -B "${branch}" main
+          if [ "${target}" = "demo-malicious" ]; then
+            git apply release-overlays/malicious.patch
+            git add -A
+            git commit -m "chore(demo): apply malicious overlay"
+          fi
+          git push --force origin "${branch}"
+
+      - name: Move latest-demo tag
+        run: |
+          sha="$(git rev-parse HEAD)"
+          git tag -f latest-demo "${sha}"
+          git push --force origin latest-demo
+
+      - name: Cut GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          body="# DEMO_SENTINEL_START release-notes $(date -u +%FT%TZ)
+          This release channel is '${{ github.event.inputs.target }}'.
+          See SAFETY.md for the demo's safety envelope.
+          # DEMO_SENTINEL_END release-notes"
+          gh release delete latest-demo --yes --cleanup-tag || true
+          gh release create latest-demo --title "latest-demo (${{ github.event.inputs.target }})" --notes "${body}"
+
+      - name: Emit telemetry issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh issue create --label demo-capture --title "Flip executed: ${{ github.event.inputs.target }} at $(date -u +%FT%TZ)" --body "Actor: ${{ github.actor }}"
+
+      - name: Update state file
+        run: |
+          git checkout main
+          mkdir -p .github
+          printf '{"current":"%s","flipped_at":"%s","actor":"%s"}\n' \
+            "${{ github.event.inputs.target }}" "$(date -u +%FT%TZ)" "${{ github.actor }}" \
+            > .github/demo-state.json
+          git add .github/demo-state.json
+          git commit -m "chore(demo): record flip to ${{ github.event.inputs.target }}"
+          git push origin main

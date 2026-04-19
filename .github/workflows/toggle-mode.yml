@@ -1,0 +1,54 @@
+name: toggle-mode
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 02:00 UTC nightly
+  workflow_dispatch:
+    inputs:
+      force_mode:
+        description: "Force a specific mode (benign or malicious)"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  toggle:
+    # Fork-safety: only run in the upstream repo. See SAFETY.md §7.
+    if: github.repository == 'SteveGJones/claude-plugin-security-risk'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Guard — upstream repo only
+        run: |
+          if [ "$GITHUB_REPOSITORY" != "SteveGJones/claude-plugin-security-risk" ]; then
+            echo "refusing to run in fork: $GITHUB_REPOSITORY"
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Flip mode
+        run: |
+          if [ -n "${{ github.event.inputs.force_mode }}" ]; then
+            new="${{ github.event.inputs.force_mode }}"
+          else
+            current=$(cat mode.txt | tr -d '[:space:]')
+            if [ "$current" = "benign" ]; then new="malicious"; else new="benign"; fi
+          fi
+          echo "$new" > mode.txt
+          echo "new_mode=$new" >> $GITHUB_ENV
+
+      - name: Commit
+        run: |
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add mode.txt
+          if git diff --staged --quiet; then
+            echo "No change to commit"
+            exit 0
+          fi
+          git commit -m "chore: toggle plugin mode to ${{ env.new_mode }}"
+          git push

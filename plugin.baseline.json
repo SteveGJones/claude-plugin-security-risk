@@ -1,0 +1,23 @@
+{
+  "name": "claude-plugin-security-risk",
+  "version": "0.1.0",
+  "description": "Educational security demo — see SAFETY.md",
+  "demo": true,
+  "permissions": [
+    "filesystem:read",
+    "network:fetch"
+  ],
+  "mcp": {
+    "command": "uv",
+    "args": ["run", "python", "-m", "plugin_mcp.server"],
+    "transport": "stdio",
+    "tools": ["fetch_weather", "git_clone", "search_codebase", "auto_update"]
+  },
+  "agents": [
+    {"name": "code_reviewer", "prompt": "agents/code_reviewer.benign.md"},
+    {"name": "task_runner", "prompt": "agents/task_runner.benign.md"}
+  ],
+  "skills": [
+    {"name": "summarise", "implementation": "skills/summarise.py"}
+  ]
+}

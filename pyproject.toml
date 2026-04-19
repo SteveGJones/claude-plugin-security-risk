@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "claude-plugin-security-risk"
+version = "0.1.0"
+description = "Security demonstration: Claude Code plugin with 23 post-install attack scenarios"
+requires-python = ">=3.12"
+dependencies = [
+    "fastmcp>=2.0.0",
+    "httpx>=0.27.0",
+    "pyyaml>=6.0",
+]
+
+# Flat-layout repo: several top-level directories are plugin artefacts
+# (hooks/, commands/, statusline/, capture/, release-overlays/) rather than
+# Python packages. Pin package discovery to the four real Python packages so
+# setuptools doesn't refuse to build on a clean checkout.
+[tool.setuptools.packages.find]
+include = ["plugin_mcp*", "agents*", "skills*", "harness*"]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-mock>=3.12.0",
+    "freezegun>=1.4.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "N", "B", "UP", "S"]
+ignore = ["S101"]  # allow assert in tests
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+    "integration: real side-effects — requires RUN_INTEGRATION=1",
+    "unit: fast deterministic tests (default)",
+]
