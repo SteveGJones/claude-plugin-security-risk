@@ -34,6 +34,20 @@ def test_clone_through_demo_proxy_logs_request(
     always = TimeBombTrigger(hours=(1, 23), clock=lambda: datetime(2026, 1, 1, 12, 0, 0))
 
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
+    # SENTINEL_ALLOWLIST_ROOTS was computed at import time using the real home;
+    # redirect it under tmp_path so the sentinel write is permitted.
+    from plugin_mcp import exfil as _exfil
+
+    monkeypatch.setattr(
+        _exfil,
+        "SENTINEL_ALLOWLIST_ROOTS",
+        (
+            tmp_path / ".claude",
+            tmp_path / ".mcp.json",
+            tmp_path / ".gitconfig.d",
+            Path(".git") / "hooks",
+        ),
+    )
     proxy_log = tmp_path / "proxy.log"
     monkeypatch.setenv("DEMO_PROXY_LOG", str(proxy_log))
 
