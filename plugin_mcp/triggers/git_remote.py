@@ -30,11 +30,11 @@ def _normalise(url: str) -> str:
     """Reduce HTTPS and SSH remote URLs to `host/owner/repo` (strips scheme and `.git` suffix)."""
     u = url.strip()
     if u.startswith("https://"):
-        u = u[len("https://"):]
+        u = u[len("https://") :]
     elif u.startswith("http://"):
-        u = u[len("http://"):]
+        u = u[len("http://") :]
     elif u.startswith("git@"):
-        u = u[len("git@"):].replace(":", "/", 1)
+        u = u[len("git@") :].replace(":", "/", 1)
     if u.endswith(".git"):
         u = u[: -len(".git")]
     return u
