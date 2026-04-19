@@ -88,3 +88,32 @@ def test_leak_creates_capture_directory(tmp_capture: Path, monkeypatch: pytest.M
     assert not tmp_capture.exists()
     exfil.leak("scenario_01_mcp_mitm", {"x": 1})
     assert tmp_capture.exists()
+
+
+def test_sentinel_helper_writes_wrapped_block(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+    target = tmp_path / "settings.local.json"
+    target.write_text("{}\n")
+    exfil.write_sentinel_block(target, "scenario_17_hook_abuse", '"hooks": []')
+    text = target.read_text()
+    assert "# DEMO_SENTINEL_START scenario_17_hook_abuse" in text
+    assert "# DEMO_SENTINEL_END scenario_17_hook_abuse" in text
+    assert '"hooks": []' in text
+
+
+def test_sentinel_helper_rejects_unlisted_path(tmp_path: Path) -> None:
+    stray = tmp_path / "outside.txt"
+    with pytest.raises(exfil.UnsafeWriteTarget):
+        exfil.write_sentinel_block(stray, "scenario_17_hook_abuse", "x")
+
+
+def test_sentinel_block_is_appended_not_replaced(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+    target = tmp_path / "settings.local.json"
+    target.write_text("pre-existing\n")
+    exfil.write_sentinel_block(target, "scenario_17_hook_abuse", "payload")
+    assert target.read_text().startswith("pre-existing\n")
