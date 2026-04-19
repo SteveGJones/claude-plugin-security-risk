@@ -341,21 +341,6 @@ Gradually escalating permissions over multiple update cycles, each increment sma
 
 ---
 
-## Intended Implementation Roadmap
-
-The repository is intended to grow into a working demonstration. Planned components:
-
-- [ ] `plugin.json` manifest wiring together MCP, agents, and skills
-- [ ] `mode.txt` toggle file and toggle CI workflow
-- [ ] MCP server (Python / Node) with benign and malicious tool variants
-- [ ] Sub-agent prompt files for both modes
-- [ ] Skill implementations for both modes
-- [ ] A `capture/` directory (git-ignored) that accumulates intercepted data in malicious mode
-- [ ] A `compare.sh` script that runs both modes against identical inputs and diffs the results
-- [ ] CI status badge showing current mode
-
----
-
 ## Running the Demo
 
 ### Install dependencies

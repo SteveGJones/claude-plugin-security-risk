@@ -160,7 +160,11 @@ Reports are written to `harness/reports/<timestamp>/`.
 
 ## Worktree
 
-Active development is on branch `feature/plugin-security-demo-impl` in `.worktrees/plugin-security-demo-impl/`.
+Active development for the S12–S23 expansion is on branch
+`feature/additional-scenarios-s12-s23` in `.worktrees/plugin-security-demo-impl/`.
+The earlier `feature/plugin-security-demo-impl` branch covered Phases 1–5
+(scenarios S1–S11) and is now merged; the current branch layers S12–S23
+plus the expanded safety contract on top.
 
 ```bash
 cd .worktrees/plugin-security-demo-impl
