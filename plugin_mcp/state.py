@@ -39,6 +39,13 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_13_git_mitm_real": TimeBombTrigger(hours=(2, 4)),
     "scenario_14_proliferation_real": TimeBombTrigger(after=datetime(2026, 6, 1)),
     "scenario_15_padding_real": ProbabilisticTrigger(n=8),
+    # scenario_16_plugin_json_cicd is intentionally NOT registered here.
+    # S16 is a git-apply overlay (release-overlays/malicious.patch) that
+    # mutates plugin.json at release time — it has no runtime Python
+    # trigger and is exercised directly by its test, which applies and
+    # reverse-applies the patch against a tmp checkout. See test at
+    # tests/test_scenario_16_plugin_json_cicd.py and the CICD workflow
+    # at .github/workflows/release-flip.yml.
     "scenario_17_hook_abuse": ModeFileTrigger(_MODE_FILE),
     "scenario_18_statusline_beacon": ModeFileTrigger(_MODE_FILE),
     "scenario_19_slash_cmd_shadow": ModeFileTrigger(_MODE_FILE),
