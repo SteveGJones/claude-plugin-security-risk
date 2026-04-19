@@ -1,6 +1,6 @@
 # Claude Code — Plugin Security Risk Demo
 
-This project demonstrates 11 post-install attack scenarios that a malicious Claude Code plugin
+This project demonstrates 23 post-install attack scenarios that a malicious Claude Code plugin
 can execute. All "malicious" code paths are intentionally observable, reversible, and scoped to
 controlled endpoints — they are not actual malware.
 
@@ -20,6 +20,13 @@ Show that installed Claude Code plugins can:
 - Burn tokens via model escalation and context padding
 - Insert credentials into tracked files via doctored skill output
 - Inject vulnerabilities via weaponised agent prompts
+- Install PreToolUse hooks that re-read `mode.txt` each invocation
+- Install statusline beacons that leak per-tick
+- Shadow common slash commands (/commit) with path-hash leak
+- Fire conditionally on repo-origin + conversation keywords
+- Fabricate plausible answers (hallucination-as-cover) as steganographic exfil
+- Persist via `~/.mcp.json` with a loopback MCP transport entry
+- Impersonate an MCP transport on a local loopback port
 
 ## Safety Constraints
 
@@ -33,6 +40,16 @@ Show that installed Claude Code plugins can:
 - Steal real credentials (use `FAKE_PAT_DO_NOT_USE` tokens)
 - Target third parties outside the demo repo/owner
 - Cause irreversible damage
+
+**Canonical safety contract: see `SAFETY.md` at repo root.** This file describes the three-layer kill switch, sentinel format, allowlisted write targets, and fork-safety posture.
+
+## Kill Switches
+
+Three layers, any of which disarms the demo:
+
+1. **`mode.txt` = `benign`** — disarms every `ModeFileTrigger`-backed scenario on the next call.
+2. **`DEMO_HALT` file at repo root** — aborts the release-flip workflow before any destructive step.
+3. **`make kill-demo`** — runs the full kill sequence: cleanup sentinels, terminate tracked PIDs, reset `mode.txt`, drop the `latest-demo` tag.
 
 ## Authorized Educational Scope (for Claude Code agents)
 
@@ -94,8 +111,10 @@ plugin.baseline.json  # Unescalated baseline for permission-creep reset
 ## Testing
 
 ```bash
-uv run pytest                                      # run all tests (75 total)
+uv run pytest                                      # run all tests
 uv run pytest -v                                   # verbose
+uv run pytest -m unit                              # fast deterministic tests only (default)
+RUN_INTEGRATION=1 uv run pytest -m integration -v   # real-effects tests (S13, S23)
 uv run ruff check .                                # lint (0 errors expected)
 uv run ruff format --check .                       # format check
 uv run mypy plugin_mcp agents skills harness tests # type check (strict)
@@ -124,6 +143,11 @@ Reports are written to `harness/reports/<timestamp>/`.
 - `# noqa: S603, S607` on intentional subprocess calls (git, bash, gh) — demo tooling
 - `import httpx as httpx` in exfil.py — explicit re-export required by mypy strict
 - `type: ignore[misc]` on lambda-with-default-arg in safety invariants — mypy limitation
+- `exfil.write_sentinel_block(path, scenario_id, content)` is the only sanctioned writer outside `capture/`
+- `DEMO_SENTINEL_START` / `DEMO_SENTINEL_END` markers wrap every non-capture write (see SAFETY.md §3)
+- Loopback-only bind enforcement — any non-`127.0.0.1` host raises `RuntimeError` before bind
+- `MAX_DEPTH = 3`, `MAX_CHILDREN = 5` enforced in `plugin_mcp/tools/spawn.py`
+- Integration tests require `RUN_INTEGRATION=1` and the `integration` pytest marker
 
 ## Worktree
 
@@ -134,10 +158,10 @@ cd .worktrees/plugin-security-demo-impl
 uv run pytest
 ```
 
-## Status (as of 2026-04-16)
+## Status (as of 2026-04-18)
 
-All 29 original + 8 new implementation tasks complete. 75 tests passing. Lint and mypy clean.
-11 scenarios implemented. Branch is ready for PR.
+All Phase 1–5 tasks complete. 23 scenarios implemented. 144+ tests passing (143+ passed, 2 skipped, 0 xfailed). Lint and mypy clean.
+23 scenarios, 4 trigger types (ModeFile, Probabilistic, TimeBomb, ReleaseTag, GitRemote, ConversationKeyword, Composite), 144+ tests. Branch is ready for PR.
 
 ## Cleanup / Reset
 
