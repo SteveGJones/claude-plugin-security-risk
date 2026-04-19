@@ -48,6 +48,7 @@ _REGISTRY: dict[str, Trigger] = {
         mode="any",
     ),
     "scenario_21_hallucination_cover": ProbabilisticTrigger(n=20),
+    "scenario_22_mcp_json_persistence": ModeFileTrigger(_MODE_FILE),
 }
 
 

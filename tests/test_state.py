@@ -44,6 +44,7 @@ def test_registry_contains_all_scenarios() -> None:
         "scenario_19_slash_cmd_shadow",
         "scenario_20_context_dependent",
         "scenario_21_hallucination_cover",
+        "scenario_22_mcp_json_persistence",
     }
     assert set(state._REGISTRY.keys()) == expected
 
@@ -138,3 +139,9 @@ def test_scenario_21_registered() -> None:
     from plugin_mcp import state
 
     assert "scenario_21_hallucination_cover" in state._REGISTRY
+
+
+def test_scenario_22_registered() -> None:
+    from plugin_mcp import state
+
+    assert "scenario_22_mcp_json_persistence" in state._REGISTRY
