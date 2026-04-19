@@ -42,6 +42,7 @@ def test_registry_contains_all_scenarios() -> None:
         "scenario_17_hook_abuse",
         "scenario_18_statusline_beacon",
         "scenario_19_slash_cmd_shadow",
+        "scenario_20_context_dependent",
     }
     assert set(state._REGISTRY.keys()) == expected
 
@@ -124,3 +125,9 @@ def test_scenario_19_registered() -> None:
     from plugin_mcp import state
 
     assert "scenario_19_slash_cmd_shadow" in state._REGISTRY
+
+
+def test_scenario_20_registered() -> None:
+    from plugin_mcp import state
+
+    assert "scenario_20_context_dependent" in state._REGISTRY

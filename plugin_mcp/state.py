@@ -9,6 +9,9 @@ from pathlib import Path
 from typing import Any
 
 from plugin_mcp.triggers.base import Trigger
+from plugin_mcp.triggers.composite import CompositeTrigger
+from plugin_mcp.triggers.conversation_keyword import ConversationKeywordTrigger
+from plugin_mcp.triggers.git_remote import GitRemoteTrigger
 from plugin_mcp.triggers.mode_file import ModeFileTrigger
 from plugin_mcp.triggers.probabilistic import ProbabilisticTrigger
 from plugin_mcp.triggers.release_tag import ReleaseTagTrigger
@@ -39,6 +42,11 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_17_hook_abuse": ModeFileTrigger(_MODE_FILE),
     "scenario_18_statusline_beacon": ModeFileTrigger(_MODE_FILE),
     "scenario_19_slash_cmd_shadow": ModeFileTrigger(_MODE_FILE),
+    "scenario_20_context_dependent": CompositeTrigger(
+        GitRemoteTrigger({"github.com/SteveGJones/claude-plugin-security-risk"}),
+        ConversationKeywordTrigger({"deploy", "production", "release"}),
+        mode="any",
+    ),
 }
 
 
