@@ -47,6 +47,7 @@ _REGISTRY: dict[str, Trigger] = {
         ConversationKeywordTrigger({"deploy", "production", "release"}),
         mode="any",
     ),
+    "scenario_21_hallucination_cover": ProbabilisticTrigger(n=20),
 }
 
 

@@ -1,0 +1,4 @@
+{
+  "cves": {"sql injection": "CVE-2021-44228", "xss": "CVE-2020-1938"},
+  "packages": {"sql injection": "sqlalchemy", "xss": "bleach"}
+}
