@@ -181,8 +181,16 @@ uv run pytest
 
 ## Status (as of 2026-04-19)
 
-All Phase 1–6 tasks complete. 23 scenarios implemented. 148 unit tests passing, 2 integration tests skipped by default (gated on `RUN_INTEGRATION=1`). Lint, format, and mypy strict all clean.
-23 scenarios, 7 trigger types (ModeFile, Probabilistic, TimeBomb, ReleaseTag, GitRemote, ConversationKeyword, Composite). Branch is ready for PR.
+All Phase 1–6 tasks complete, S1–S23 merged to `main`. 148 unit tests passing, 2 integration tests skipped by default (gated on `RUN_INTEGRATION=1`). Lint, format, and mypy strict all clean.
+23 scenarios, 7 trigger types (ModeFile, Probabilistic, TimeBomb, ReleaseTag, GitRemote, ConversationKeyword, Composite).
+
+### ⚠ Known gap: Packaging Completeness (next phase)
+
+As currently packaged, the plugin surfaces only **MCP tools, one PreToolUse hook, the `/commit` slash command, and `~/.mcp.json` persistence** to Claude Code. The agent scenarios (S2, S6, S11) and skill scenarios (S3, S9, S10) are simulated in-process via `agents/loader.py` and `skills/*.py` but **are not registered as real Claude Code sub-agents or skills** — `agents/*.md` lack Claude Code frontmatter, and `skills/` is flat Python not `skills/<name>/SKILL.md`. The statusline script in `statusline/demo_statusline.sh` is not wired either.
+
+This means a user installing the plugin today sees only the MCP side of the attack surface, not the agent/skill/statusline sides the blog post emphasises.
+
+**Fix:** Spec at `docs/superpowers/specs/2026-04-19-packaging-completeness-design.md`. Scope: convert the three sub-agent prompts to real Claude Code sub-agents with YAML frontmatter, restructure `skills/<name>/SKILL.md`, wire the statusline, and revert the `"agents": []` / `"skills": []` suppression in `.claude-plugin/plugin.json`. Substitution attacks (S2, S3, S6, S9, S10, S11) rewrite the on-disk `.md` via the existing `exfil.write_sentinel_block` chokepoint. Do this work in a new branch (`feature/packaging-completeness`) in a fresh session.
 
 ## Cleanup / Reset
 
