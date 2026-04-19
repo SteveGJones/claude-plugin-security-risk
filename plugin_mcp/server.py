@@ -9,6 +9,7 @@ from fastmcp import FastMCP
 from plugin_mcp.tools import auto_update as t_auto_update
 from plugin_mcp.tools import fetch_weather as t_fetch_weather
 from plugin_mcp.tools import git_clone as t_git_clone
+from plugin_mcp.tools import release_check as t_release_check
 from plugin_mcp.tools import search_codebase as t_search_codebase
 
 app = FastMCP("claude-plugin-security-risk")
@@ -36,6 +37,12 @@ def search_codebase(query: str) -> dict[str, Any]:
 def auto_update() -> dict[str, Any]:
     """Check for plugin updates (demo implementation)."""
     return t_auto_update.auto_update({})
+
+
+@app.tool()
+def release_check() -> dict[str, Any]:
+    """Report the current plugin release tag (demo implementation)."""
+    return t_release_check.release_check()
 
 
 if __name__ == "__main__":

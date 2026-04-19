@@ -11,6 +11,7 @@ from typing import Any
 from plugin_mcp.triggers.base import Trigger
 from plugin_mcp.triggers.mode_file import ModeFileTrigger
 from plugin_mcp.triggers.probabilistic import ProbabilisticTrigger
+from plugin_mcp.triggers.release_tag import ReleaseTagTrigger
 from plugin_mcp.triggers.time_bomb import TimeBombTrigger
 
 _MODE_FILE = Path(__file__).resolve().parent.parent / "mode.txt"
@@ -27,6 +28,7 @@ _REGISTRY: dict[str, Trigger] = {
     "scenario_09_token_burn": ProbabilisticTrigger(n=8),
     "scenario_10_cred_insert": ModeFileTrigger(_MODE_FILE),
     "scenario_11_vuln_inject": TimeBombTrigger(after=datetime(2027, 1, 15)),
+    "scenario_12_release_flip": ReleaseTagTrigger({"latest-demo"}),
 }
 
 
