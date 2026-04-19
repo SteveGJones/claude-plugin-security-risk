@@ -8,13 +8,29 @@ any merge.
 from __future__ import annotations
 
 import ast
+import json as _json
 import re
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+import yaml  # type: ignore[import-untyped]
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def _all_py_files(root: Path) -> list[Path]:
+    return [
+        p
+        for p in root.rglob("*.py")
+        if ".worktrees" not in p.parts
+        and "tests" not in p.parts
+        and "__pycache__" not in p.parts
+        and ".venv" not in p.parts
+    ]
+
 
 # ---------- Invariant 1: every malicious path routes through leak() ----------
 
@@ -168,3 +184,204 @@ def test_time_bomb_triggers_in_registry_respect_clock() -> None:
         assert trig.evaluate() is False, f"{sid}: expected benign before trigger"
         trig._clock = after
         assert trig.evaluate() is True, f"{sid}: expected malicious after trigger"
+
+
+# ---------- Invariant 7: writes outside capture/ use sentinel helper ----------
+
+
+def test_writes_outside_capture_use_sentinel_helper() -> None:
+    """`open(..., 'w'|'a')` outside the designated chokepoints is forbidden.
+
+    Every malicious mutation of a persistence-relevant file must route through
+    `exfil.write_sentinel_block`, which enforces the path allowlist and wraps
+    writes in cleanup-friendly sentinels.
+    """
+    offenders: list[str] = []
+    allowlisted_files = {
+        "plugin_mcp/exfil.py",
+        "harness/cleanup_sentinels.py",
+    }
+    for path in _all_py_files(ROOT):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel in allowlisted_files:
+            continue
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Name)
+                and node.func.id == "open"
+            ):
+                continue
+            if len(node.args) < 2:
+                continue
+            mode = node.args[1]
+            if (
+                isinstance(mode, ast.Constant)
+                and isinstance(mode.value, str)
+                and ("w" in mode.value or "a" in mode.value)
+            ):
+                offenders.append(f"{rel}:{node.lineno}")
+    assert not offenders, f"raw write opens outside sentinel helper: {offenders}"
+
+
+# ---------- Invariant 8: network imports only in allowlisted modules ----------
+
+
+def test_network_calls_only_in_allowlisted_modules() -> None:
+    """Outbound HTTP modules (httpx/requests/urllib) allowed only in chokepoint files.
+
+    The existing legitimate uses are: `plugin_mcp/exfil.py` (the exfil
+    chokepoint), `plugin_mcp/tools/fetch_weather.py` (scenario 1's benign
+    weather call), and `harness/compare.py` (demo runner).
+    """
+    allow = {
+        "plugin_mcp/exfil.py",
+        "plugin_mcp/tools/fetch_weather.py",
+        "harness/compare.py",
+        "harness/demo_proxy.py",  # future: Phase 2 integration-only scenarios
+    }
+    offenders: list[str] = []
+    for path in _all_py_files(ROOT):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel in allow:
+            continue
+        src = path.read_text()
+        for needle in (
+            "import httpx",
+            "import requests",
+            "import urllib.request",
+            "from httpx",
+            "from requests",
+            "from urllib.request",
+        ):
+            if needle in src:
+                offenders.append(f"{rel}:{needle}")
+    assert not offenders, f"network imports outside allowlist: {offenders}"
+
+
+# ---------- Invariant 9: any bind target is loopback-only ----------
+
+
+def test_binds_only_to_loopback() -> None:
+    """Any socket bind / uvicorn / asyncio.start_server must target 127.0.0.1.
+
+    The strings `0.0.0.0` and `localhost` are banned — loopback must be
+    specified as the explicit IPv4 literal so network-scope is unambiguous
+    at audit time.
+    """
+    offenders: list[str] = []
+    for path in _all_py_files(ROOT):
+        rel = path.relative_to(ROOT).as_posix()
+        src = path.read_text()
+        if "0.0.0.0" in src or '"localhost"' in src or "'localhost'" in src:
+            offenders.append(rel)
+    assert not offenders, f"non-loopback bind strings found: {offenders}"
+
+
+# ---------- Invariant 10: subprocess only in spawn/harness modules -----------
+
+
+def test_subprocess_only_in_spawn_module() -> None:
+    """`subprocess.Popen` / `os.fork` forbidden outside a small set of modules.
+
+    Allowed: the scenario-6 spawn module, harness demo infra, cleanup tooling,
+    and the two triggers that shell out to `git` for release-tag / remote URL
+    resolution.
+    """
+    allow = {
+        "plugin_mcp/tools/spawn.py",  # future: Phase 2 may move spawn here
+        "agents/spawn_helper.py",  # current scenario-6 spawn location
+        "harness/demo_proxy.py",
+        "harness/demo_mcp_server.py",
+        "harness/cleanup_sentinels.py",
+        "plugin_mcp/triggers/release_tag.py",
+        "plugin_mcp/triggers/git_remote.py",
+    }
+    offenders: list[str] = []
+    for path in _all_py_files(ROOT):
+        rel = path.relative_to(ROOT).as_posix()
+        if rel in allow:
+            continue
+        src = path.read_text()
+        if "subprocess.Popen" in src or "os.fork" in src:
+            offenders.append(rel)
+    assert not offenders, f"Popen/fork outside allowlist: {offenders}"
+
+
+# ---------- Invariant 11: spawn module declares depth/children caps ----------
+
+
+@pytest.mark.xfail(reason="awaiting Phase 2 spawn module refactor", strict=False)
+def test_spawn_module_declares_depth_and_children_caps() -> None:
+    spawn = (ROOT / "plugin_mcp" / "tools" / "spawn.py").read_text()
+    assert "MAX_DEPTH = 3" in spawn
+    assert "MAX_CHILDREN = 5" in spawn
+
+
+# ---------- Invariant 12: flip workflow guards repo identity ----------------
+
+
+@pytest.mark.xfail(reason="awaiting Phase 3 release-flip.yml", strict=False)
+def test_flip_workflow_guards_repo_identity() -> None:
+    wf = (ROOT / ".github" / "workflows" / "release-flip.yml").read_text()
+    assert "github.repository" in wf and "SteveGJones/claude-plugin-security-risk" in wf
+    assert "DEMO_FLIP_CONFIRM" in wf
+    assert "DEMO_HALT" in wf
+
+
+@pytest.mark.xfail(reason="awaiting Phase 3 release-flip.yml", strict=False)
+def test_flip_workflow_has_no_schedule_key() -> None:
+    wf = yaml.safe_load((ROOT / ".github" / "workflows" / "release-flip.yml").read_text())
+    # PyYAML returns True for the bare `on:` key; check both keys for safety.
+    assert "schedule" not in wf.get(True, {}) and "schedule" not in wf.get("on", {})
+
+
+# ---------- Invariant 13: sentinel cleanup is idempotent ---------------------
+
+
+def test_cleanup_is_idempotent(tmp_path: Path) -> None:
+    home = tmp_path
+    settings = home / ".claude" / "settings.local.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(
+        "keep\n"
+        "# DEMO_SENTINEL_START scenario_17_hook_abuse 2026-04-18T00:00:00+00:00\n"
+        "x\n"
+        "# DEMO_SENTINEL_END scenario_17_hook_abuse\n"
+    )
+    for _ in range(2):
+        rc = subprocess.run(  # noqa: S603
+            [sys.executable, "-m", "harness.cleanup_sentinels", "--home", str(home)],
+            cwd=ROOT,
+            check=False,
+        ).returncode
+        assert rc == 0
+    assert settings.read_text() == "keep\n"
+
+
+# ---------- Invariant 14: sentinel cleanup refuses malformed input ---------
+
+
+def test_cleanup_refuses_malformed_sentinels(tmp_path: Path) -> None:
+    home = tmp_path
+    settings = home / ".claude" / "settings.local.json"
+    settings.parent.mkdir(parents=True)
+    settings.write_text(
+        "# DEMO_SENTINEL_START scenario_17_hook_abuse 2026-04-18T00:00:00+00:00\n(unclosed)\n"
+    )
+    rc = subprocess.run(  # noqa: S603
+        [sys.executable, "-m", "harness.cleanup_sentinels", "--home", str(home)],
+        cwd=ROOT,
+        check=False,
+    ).returncode
+    assert rc != 0
+
+
+# ---------- Invariant 15: plugin.json declares demo:true flag ---------------
+
+
+@pytest.mark.xfail(reason="awaiting Phase 5 plugin.json update", strict=False)
+def test_plugin_json_requires_demo_flag() -> None:
+    data = _json.loads((ROOT / "plugin.json").read_text())
+    assert data.get("demo") is True
