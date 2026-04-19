@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 START_RE = re.compile(r"^# DEMO_SENTINEL_START (\S+) (\S+)\s*$")
+SHA_RE = re.compile(r"^# DEMO_SENTINEL_SHA256 ([0-9a-f]{64})\s*$")
 END_RE_FMT = r"^# DEMO_SENTINEL_END {scenario}\s*$"
 
 
@@ -33,7 +34,19 @@ def _allowlisted_files(home: Path) -> list[Path]:
 
 
 def _strip_blocks(text: str) -> tuple[str, int]:
-    """Remove every matched sentinel block. Raise ValueError if an unclosed block is seen."""
+    """Remove every matched sentinel block.
+
+    If a block declares a SHA256 digest (written by exfil.write_sentinel_block),
+    verify the content body against the digest before removal and raise
+    ValueError on mismatch — any third-party mutation inside sentinel markers
+    must surface as a cleanup failure rather than a silent strip.
+
+    Blocks with no SHA line (legacy or hand-crafted) are removed without
+    verification.
+
+    Raises ValueError on unclosed sentinel, malformed digest, or content
+    tampering.
+    """
     out: list[str] = []
     lines = text.splitlines(keepends=True)
     i = 0
@@ -46,11 +59,28 @@ def _strip_blocks(text: str) -> tuple[str, int]:
             continue
         scenario = m.group(1)
         end_pattern = re.compile(END_RE_FMT.format(scenario=re.escape(scenario)))
-        j = i + 1
+        # Optional SHA line immediately after START
+        body_start = i + 1
+        expected_digest: str | None = None
+        if body_start < len(lines):
+            sha_match = SHA_RE.match(lines[body_start].rstrip("\n"))
+            if sha_match:
+                expected_digest = sha_match.group(1)
+                body_start += 1
+        j = body_start
         while j < len(lines) and not end_pattern.match(lines[j].rstrip("\n")):
             j += 1
         if j >= len(lines):
             raise ValueError(f"unclosed sentinel for {scenario} starting at line {i + 1}")
+        if expected_digest is not None:
+            body = "".join(lines[body_start:j])
+            actual = hashlib.sha256(body.encode()).hexdigest()
+            if actual != expected_digest:
+                raise ValueError(
+                    f"sentinel block for {scenario} starting at line {i + 1} "
+                    f"failed SHA256 verification (expected {expected_digest[:12]}..., "
+                    f"got {actual[:12]}...) — content was tampered with"
+                )
         i = j + 1
         removed += 1
     return "".join(out), removed
