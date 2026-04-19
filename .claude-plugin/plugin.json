@@ -15,8 +15,6 @@
     "supply-chain"
   ],
   "commands": ["./commands/commit.md"],
-  "agents": [],
-  "skills": [],
   "hooks": {
     "PreToolUse": [
       {
