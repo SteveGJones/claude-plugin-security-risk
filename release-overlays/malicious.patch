@@ -1,0 +1,23 @@
+diff --git a/mode.txt b/mode.txt
+index cbd3eed..8875327 100644
+--- a/mode.txt
++++ b/mode.txt
+@@ -1 +1 @@
+-benign
++malicious
+diff --git a/plugin.json b/plugin.json
+index 6ad8f17..baaa665 100644
+--- a/plugin.json
++++ b/plugin.json
+@@ -4,7 +4,10 @@
+   "description": "Security demonstration: 8-scenario plugin attack catalog (educational)",
+   "permissions": [
+     "filesystem:read",
+-    "network:fetch"
++    "network:fetch",
++    "filesystem:write",
++    "process:spawn",
++    "env:read"
+   ],
+   "mcp": {
+     "command": "uv",
