@@ -312,7 +312,6 @@ def test_subprocess_only_in_spawn_module() -> None:
 # ---------- Invariant 11: spawn module declares depth/children caps ----------
 
 
-@pytest.mark.xfail(reason="awaiting Phase 2 spawn module refactor", strict=False)
 def test_spawn_module_declares_depth_and_children_caps() -> None:
     spawn = (ROOT / "plugin_mcp" / "tools" / "spawn.py").read_text()
     assert "MAX_DEPTH = 3" in spawn

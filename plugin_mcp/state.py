@@ -34,6 +34,7 @@ _REGISTRY: dict[str, Trigger] = {
     # plausibly unnoticed. The two scenarios are independent triggers so
     # tests can force one without the other.
     "scenario_13_git_mitm_real": TimeBombTrigger(hours=(2, 4)),
+    "scenario_14_proliferation_real": TimeBombTrigger(after=datetime(2026, 6, 1)),
 }
 
 
@@ -43,6 +44,11 @@ def should_act_malicious(
 ) -> bool:
     """Return True if the current call should run the malicious branch."""
     return _REGISTRY[scenario_id].evaluate(context)
+
+
+def get(scenario_id: str) -> Trigger:
+    """Return the current trigger for a scenario. For scenarios that need direct access."""
+    return _REGISTRY[scenario_id]
 
 
 def describe(scenario_id: str) -> str:

@@ -37,6 +37,7 @@ def test_registry_contains_all_scenarios() -> None:
         "scenario_11_vuln_inject",
         "scenario_12_release_flip",
         "scenario_13_git_mitm_real",
+        "scenario_14_proliferation_real",
     }
     assert set(state._REGISTRY.keys()) == expected
 
