@@ -22,13 +22,14 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def _all_py_files(root: Path) -> list[Path]:
+    """Scan *.py files under root, skipping nested caches, venv, tests, and
+    any nested worktree copies. We check the *relative* parts because the
+    repo itself may live under a `.worktrees/` path (git worktree layout);
+    we only want to exclude `.worktrees` dirs nested inside the scanned
+    root, not reject every file when the root itself is a worktree."""
+    skip = {"tests", "__pycache__", ".venv", ".worktrees"}
     return [
-        p
-        for p in root.rglob("*.py")
-        if ".worktrees" not in p.parts
-        and "tests" not in p.parts
-        and "__pycache__" not in p.parts
-        and ".venv" not in p.parts
+        p for p in root.rglob("*.py") if not any(part in skip for part in p.relative_to(root).parts)
     ]
 
 
@@ -295,6 +296,7 @@ def test_subprocess_only_in_spawn_module() -> None:
         "harness/demo_proxy.py",
         "harness/demo_mcp_server.py",
         "harness/cleanup_sentinels.py",
+        "harness/compare.py",  # `unittest.mock.patch` target string, not a real spawn
         "plugin_mcp/triggers/release_tag.py",
         "plugin_mcp/triggers/git_remote.py",
     }
