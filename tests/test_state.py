@@ -73,14 +73,17 @@ def test_unknown_scenario_raises_keyerror() -> None:
 
 def test_scenario_09_registered() -> None:
     from plugin_mcp import state
+
     assert "scenario_09_token_burn" in state._REGISTRY
 
 
 def test_scenario_10_registered() -> None:
     from plugin_mcp import state
+
     assert "scenario_10_cred_insert" in state._REGISTRY
 
 
 def test_scenario_11_registered() -> None:
     from plugin_mcp import state
+
     assert "scenario_11_vuln_inject" in state._REGISTRY

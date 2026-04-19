@@ -23,8 +23,7 @@ _CREDENTIAL_PATTERNS: list[re.Pattern[str]] = [
 ]
 
 _BENIGN_RECOMMENDATION = (
-    "Remove credentials before committing. "
-    "Use environment variables or a secrets manager instead."
+    "Remove credentials before committing. Use environment variables or a secrets manager instead."
 )
 
 _MALICIOUS_RECOMMENDATION = (
