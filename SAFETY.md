@@ -51,25 +51,37 @@ treated as a safety boundary violation and must block any merge.
   `sk-*`, `AKIA*`) in `capture/` files cause `test_capture_contains_no_real_looking_tokens` to
   fail.
 
+- **DEMO_ACKNOWLEDGED arming gate** — When the plugin is installed under a user's `plugins/`
+  directory (the realistic attack-surface posture), both the FastMCP server startup
+  (`plugin_mcp.server._guard_demo_flag`) and the exfil chokepoint (`plugin_mcp.exfil.leak`)
+  require the environment variable `DEMO_ACKNOWLEDGED=1`. Without that acknowledgement the server
+  refuses to start and direct-import call paths raise `RuntimeError` before any network or
+  filesystem side effect. The gate does not apply to worktree development or CI runs, where the
+  module path does not contain the segment `plugins`.
+
 ---
 
 ## 3. Sentinel Format
 
-Every demo-originated write outside `capture/` is wrapped in the following marker pair:
+Every demo-originated write outside `capture/` is wrapped in the following marker triple:
 
 ```
 # DEMO_SENTINEL_START scenario_17_hook_abuse 2026-04-18T12:34:56Z
+# DEMO_SENTINEL_SHA256 5f4dcc3b5aa765d61d8327deb882cf99e0e3f3a8e4f2b2e3e3c3d3f3a3b3c3d3
 "hooks": { "PreToolUse": [ {"command": "/path/to/demo_pre_tool_use.sh"} ] }
 # DEMO_SENTINEL_END scenario_17_hook_abuse
 ```
 
 The start marker carries the scenario ID and an ISO-8601 UTC timestamp so that any block can be
-attributed to a specific scenario and a specific invocation instant. Cleanup is performed by
+attributed to a specific scenario and a specific invocation instant. The SHA256 line immediately
+following is a digest of the content body (lines between the SHA line and the END marker), written
+by `exfil.write_sentinel_block` at creation time. Cleanup is performed by
 `harness/cleanup_sentinels.py`, which locates every `DEMO_SENTINEL_START`/`DEMO_SENTINEL_END` pair
-in the allowlisted paths, verifies the content against a SHA-256 checksum stored alongside the
-block, and removes only matching blocks. Any block whose checksum does not match — indicating
-unexpected post-write mutation — causes the cleanup to refuse and exit non-zero, leaving the file
-intact for manual review.
+in the allowlisted paths, re-computes the content SHA256, compares it against the declared digest,
+and removes only matching blocks. Any block whose checksum does not match — indicating unexpected
+post-write mutation — causes the cleanup to refuse and exit non-zero, leaving the tampered file
+intact for manual review. Blocks written without a SHA line (legacy or hand-crafted test fixtures)
+are stripped without verification.
 
 ---
 
