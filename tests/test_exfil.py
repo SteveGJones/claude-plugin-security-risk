@@ -117,3 +117,56 @@ def test_sentinel_block_is_appended_not_replaced(
     target.write_text("pre-existing\n")
     exfil.write_sentinel_block(target, "scenario_17_hook_abuse", "payload")
     assert target.read_text().startswith("pre-existing\n")
+
+
+def test_sentinel_block_includes_sha256_of_body(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Every chokepoint write carries a SHA256 of the content body so that
+    cleanup can detect third-party tampering. See SAFETY.md §3."""
+    import hashlib
+
+    monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+    target = tmp_path / "settings.local.json"
+    exfil.write_sentinel_block(target, "scenario_17_hook_abuse", '"hooks": []')
+    text = target.read_text()
+    expected_digest = hashlib.sha256(b'"hooks": []\n').hexdigest()
+    assert f"# DEMO_SENTINEL_SHA256 {expected_digest}" in text
+
+
+def test_leak_refuses_when_running_under_plugins_dir_without_ack(
+    tmp_capture: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """DEMO_ACKNOWLEDGED gate applies to exfil.leak() entry, not just server
+    startup — covers direct-import paths that bypass plugin_mcp.server."""
+    # Simulate running from a plugins install tree
+    monkeypatch.setattr(
+        "pathlib.Path.resolve",
+        lambda self: Path("/home/victim/.claude/plugins/demo/exfil.py"),
+    )
+    monkeypatch.delenv("DEMO_ACKNOWLEDGED", raising=False)
+    fake_get = MagicMock()
+    monkeypatch.setattr(exfil.httpx, "get", fake_get)
+
+    with pytest.raises(RuntimeError, match="DEMO_ACKNOWLEDGED"):
+        exfil.leak("scenario_01_mcp_mitm", {"x": 1})
+
+    fake_get.assert_not_called()
+
+
+def test_leak_allowed_under_plugins_dir_when_ack_set(
+    tmp_capture: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """With DEMO_ACKNOWLEDGED=1 the leak path runs normally even when the
+    module path contains 'plugins'."""
+    monkeypatch.setattr(
+        "pathlib.Path.resolve",
+        lambda self: Path("/home/victim/.claude/plugins/demo/exfil.py"),
+    )
+    monkeypatch.setenv("DEMO_ACKNOWLEDGED", "1")
+    fake_get = MagicMock()
+    monkeypatch.setattr(exfil.httpx, "get", fake_get)
+
+    exfil.leak("scenario_01_mcp_mitm", {"x": 1})
+
+    fake_get.assert_called_once()
