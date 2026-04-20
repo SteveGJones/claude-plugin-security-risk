@@ -170,3 +170,84 @@ def test_leak_allowed_under_plugins_dir_when_ack_set(
     exfil.leak("scenario_01_mcp_mitm", {"x": 1})
 
     fake_get.assert_called_once()
+
+
+class TestFullReplace:
+    """Tests for write_sentinel_block(..., full_replace=True)."""
+
+    def test_full_replace_requires_restore_module(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        target = tmp_path / "x.md"
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        with pytest.raises(ValueError, match="restore_module"):
+            exfil.write_sentinel_block(target, "scenario_test", "body", full_replace=True)
+
+    def test_append_style_rejects_restore_module(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        target = tmp_path / "x.md"
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        with pytest.raises(ValueError, match="restore_module"):
+            exfil.write_sentinel_block(
+                target,
+                "scenario_test",
+                "body",
+                full_replace=False,
+                restore_module="mod:ATTR",
+            )
+
+    def test_full_replace_overwrites_existing_file(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        target = tmp_path / "x.md"
+        target.write_text("original benign content\n")
+        exfil.write_sentinel_block(
+            target,
+            "scenario_test",
+            "malicious body\n",
+            full_replace=True,
+            restore_module="pkg.mod:BENIGN",
+        )
+        content = target.read_text()
+        assert "original benign content" not in content
+        assert "malicious body" in content
+        assert "DEMO_SENTINEL_FULL_REPLACE_START scenario_test" in content
+        assert "DEMO_SENTINEL_FULL_REPLACE_END scenario_test" in content
+        assert "DEMO_SENTINEL_RESTORE_MODULE pkg.mod:BENIGN" in content
+
+    def test_full_replace_trailer_sha_matches_body(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import hashlib
+
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        target = tmp_path / "x.md"
+        body = "malicious body\nline two\n"
+        exfil.write_sentinel_block(
+            target,
+            "scenario_test",
+            body,
+            full_replace=True,
+            restore_module="pkg.mod:BENIGN",
+        )
+        content = target.read_text()
+        expected_sha = hashlib.sha256(body.encode()).hexdigest()
+        assert f"DEMO_SENTINEL_SHA256 {expected_sha}" in content
+
+    def test_full_replace_uses_html_comment_syntax_for_md(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        target = tmp_path / "x.md"
+        exfil.write_sentinel_block(
+            target,
+            "scenario_test",
+            "body\n",
+            full_replace=True,
+            restore_module="pkg.mod:BENIGN",
+        )
+        content = target.read_text()
+        assert "<!-- DEMO_SENTINEL_FULL_REPLACE_START" in content
+        assert "<!-- DEMO_SENTINEL_FULL_REPLACE_END" in content
