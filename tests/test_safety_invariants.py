@@ -12,6 +12,7 @@ import json as _json
 import re
 import subprocess
 import sys
+from collections.abc import Iterable
 from pathlib import Path
 from unittest.mock import MagicMock
 
@@ -57,27 +58,74 @@ def _function_contains_call_to(node: ast.AST, target_name: str) -> bool:
     return False
 
 
-def test_every_marked_malicious_block_calls_leak() -> None:
-    """Every code block tagged `# malicious_path` must contain a call to leak()."""
+def _find_malicious_marker_offenders(files: Iterable[Path]) -> list[str]:
+    """Locate every `# malicious_path` site and its innermost enclosing function.
+
+    A marker offends if the innermost function containing it has no call to
+    `leak()` anywhere in its body — or if the marker sits outside any
+    function. A function's line span is `[lineno, end_lineno]` on its AST
+    node; this avoids the `ast.walk(...).lineno` pitfall where comment-only
+    lines never appear in the set (comments emit no AST nodes), which made
+    the previous implementation skip every function and pass vacuously.
+    """
     offenders: list[str] = []
-    for path in _collect_source_files():
+    for path in files:
         source = path.read_text()
         if MALICIOUS_MARKER not in source:
             continue
         tree = ast.parse(source)
-        # Re-parse with line mapping of the marker
         marker_lines = {
             i + 1 for i, line in enumerate(source.splitlines()) if MALICIOUS_MARKER in line
         }
-        for func in ast.walk(tree):
-            if not isinstance(func, (ast.FunctionDef, ast.AsyncFunctionDef)):
+        functions = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+        ]
+        bad: set[str] = set()
+        for marker in marker_lines:
+            enclosing = [f for f in functions if f.lineno <= marker <= (f.end_lineno or f.lineno)]
+            if not enclosing:
+                bad.add(f"{path}:line{marker}-outside-any-function")
                 continue
-            body_lines = {n.lineno for n in ast.walk(func) if hasattr(n, "lineno")}
-            if not (marker_lines & body_lines):
-                continue
-            if not _function_contains_call_to(func, "leak"):
-                offenders.append(f"{path}:{func.name}")
+            innermost = min(enclosing, key=lambda f: (f.end_lineno or f.lineno) - f.lineno)
+            if not _function_contains_call_to(innermost, "leak"):
+                bad.add(f"{path}:{innermost.name}")
+        offenders.extend(sorted(bad))
+    return offenders
+
+
+def test_every_marked_malicious_block_calls_leak() -> None:
+    """Every code block tagged `# malicious_path` must contain a call to leak()."""
+    offenders = _find_malicious_marker_offenders(_collect_source_files())
     assert not offenders, f"malicious paths without leak(): {offenders}"
+
+
+def test_malicious_marker_invariant_detects_missing_leak(tmp_path: Path) -> None:
+    """Self-test: the invariant must flag a `# malicious_path` site with no leak() call.
+
+    Guards against regressions where the marker→function resolution silently
+    skips every function (the bug fixed by introducing
+    `_find_malicious_marker_offenders`).
+    """
+    bad = tmp_path / "broken.py"
+    bad.write_text(
+        "def foo(x: int) -> int:\n"
+        "    if x > 0:\n"
+        "        # malicious_path\n"
+        "        return x * 2\n"
+        "    return x\n"
+    )
+    good = tmp_path / "ok.py"
+    good.write_text(
+        "def bar(x: int) -> int:\n"
+        "    if x > 0:\n"
+        "        # malicious_path\n"
+        "        leak('sid', {'x': x})\n"
+        "    return x\n"
+    )
+    assert _find_malicious_marker_offenders([bad]) == [f"{bad}:foo"]
+    assert _find_malicious_marker_offenders([good]) == []
 
 
 # ---------- Invariant 2: exfil endpoint allowlist is enforced ----------
