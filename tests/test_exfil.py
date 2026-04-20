@@ -251,3 +251,48 @@ class TestFullReplace:
         content = target.read_text()
         assert "<!-- DEMO_SENTINEL_FULL_REPLACE_START" in content
         assert "<!-- DEMO_SENTINEL_FULL_REPLACE_END" in content
+
+
+class TestRepoRelativeAllowlist:
+    """Tests for SENTINEL_REPO_ROOT env and agents/ + skills/ allowlist entries."""
+
+    def test_agents_under_repo_root_are_allowlisted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_repo = tmp_path / "repo"
+        (fake_repo / "agents").mkdir(parents=True)
+        (fake_repo / "pyproject.toml").write_text('[project]\nname="x"\n')
+        monkeypatch.setenv("SENTINEL_REPO_ROOT", str(fake_repo))
+        # Force re-resolution by reloading the module's allowlist.
+        import importlib
+
+        importlib.reload(exfil)
+        target = fake_repo / "agents" / "code_reviewer.md"
+        assert exfil._is_allowlisted(target)
+
+    def test_skills_under_repo_root_are_allowlisted(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_repo = tmp_path / "repo"
+        (fake_repo / "skills" / "summarise").mkdir(parents=True)
+        (fake_repo / "pyproject.toml").write_text('[project]\nname="x"\n')
+        monkeypatch.setenv("SENTINEL_REPO_ROOT", str(fake_repo))
+        import importlib
+
+        importlib.reload(exfil)
+        target = fake_repo / "skills" / "summarise" / "SKILL.md"
+        assert exfil._is_allowlisted(target)
+
+    def test_paths_outside_repo_roots_still_rejected(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        fake_repo = tmp_path / "repo"
+        (fake_repo / "agents").mkdir(parents=True)
+        (fake_repo / "pyproject.toml").write_text('[project]\nname="x"\n')
+        monkeypatch.setenv("SENTINEL_REPO_ROOT", str(fake_repo))
+        import importlib
+
+        importlib.reload(exfil)
+        other = tmp_path / "other" / "victim.md"
+        other.parent.mkdir(parents=True)
+        assert not exfil._is_allowlisted(other)

@@ -44,21 +44,44 @@ FULL_REPLACE_SHA_FMT = "<!-- DEMO_SENTINEL_SHA256 {digest} -->"
 FULL_REPLACE_RESTORE_FMT = "<!-- DEMO_SENTINEL_RESTORE_MODULE {module_attr} -->"
 FULL_REPLACE_END_FMT = "<!-- DEMO_SENTINEL_FULL_REPLACE_END {scenario_id} -->"
 
+
+def _resolve_repo_root() -> Path:
+    """Resolve the repo root used for repo-relative allowlist entries.
+
+    Precedence:
+      1. SENTINEL_REPO_ROOT env var (used by tests to point at tmp_path).
+      2. Walk up from this file until a directory containing pyproject.toml
+         is found.
+      3. Fallback: two levels above this file.
+    """
+    env = os.environ.get("SENTINEL_REPO_ROOT")
+    if env:
+        return Path(env).resolve()
+    here = Path(__file__).resolve().parent
+    while here != here.parent:
+        if (here / "pyproject.toml").exists():
+            return here
+        here = here.parent
+    return Path(__file__).resolve().parent.parent
+
+
 # Default allowlist roots for `write_sentinel_block`. Tests monkeypatch this
 # tuple to redirect writes into tmp_path. Every path a malicious scenario
 # writes to must be under one of these roots or `UnsafeWriteTarget` is raised.
 #
-# All entries are absolute. `.git/hooks` resolves against the repo root where
-# this module lives — NOT the current working directory — so a scenario that
-# runs with an unexpected CWD cannot relocate the allowlist onto an unrelated
-# project's .git/hooks directory.
+# All entries are absolute. `.git/hooks`, `agents/`, and `skills/` resolve
+# against the repo root (see `_resolve_repo_root`) — NOT the current working
+# directory — so a scenario that runs with an unexpected CWD cannot relocate
+# the allowlist onto an unrelated project's tree.
 _HOME = Path.home()
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = _resolve_repo_root()
 SENTINEL_ALLOWLIST_ROOTS: tuple[Path, ...] = (
     _HOME / ".claude",
     _HOME / ".mcp.json",
     _HOME / ".gitconfig.d",
     _REPO_ROOT / ".git" / "hooks",
+    _REPO_ROOT / "agents",
+    _REPO_ROOT / "skills",
 )
 
 
