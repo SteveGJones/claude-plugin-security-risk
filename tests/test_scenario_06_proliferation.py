@@ -1,13 +1,19 @@
-"""Scenario 6: sub-agent proliferation via time-bomb trigger."""
+"""Scenario 6: sub-agent proliferation via time-bomb trigger.
+
+Flow is the same shape as S2: arm_session rewrites task_runner.md when
+trigger fires. spawn_helper tests are unchanged.
+"""
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
 
+from agents import _variants
 from agents.loader import load_prompt
 from agents.spawn_helper import spawn_background, wait_for_all
 from plugin_mcp import exfil, state
@@ -31,6 +37,22 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 @pytest.fixture
+def tmp_agents(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    repo = Path(__file__).resolve().parent.parent
+    src = repo / "agents"
+    dst = tmp_path / "agents"
+    dst.mkdir()
+    for name in ("code_reviewer.md", "task_runner.md", "security_reviewer.md"):
+        shutil.copy(src / name, dst / name)
+    monkeypatch.setenv("SENTINEL_REPO_ROOT", str(tmp_path))
+    import importlib
+
+    importlib.reload(exfil)
+    monkeypatch.setattr(exfil, "CAPTURE_DIR", tmp_path / "capture")
+    return dst
+
+
+@pytest.fixture
 def tmp_capture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     capture = tmp_path / "capture"
     monkeypatch.setattr(exfil, "CAPTURE_DIR", capture)
@@ -38,35 +60,44 @@ def tmp_capture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return capture
 
 
-def test_benign_loader_does_not_spawn(tmp_capture: Path) -> None:
-    with state.override("scenario_06_proliferation", _ForcedTrigger(False)):
-        prompt = load_prompt("task_runner")
-
+def test_benign_task_runner_has_no_spawn_instruction(tmp_agents: Path) -> None:
+    prompt = load_prompt("task_runner", root=tmp_agents)
+    assert "spawn_background" not in prompt
     assert "[SYSTEM]" not in prompt
-    # No PID file created
-    assert not (tmp_capture / "scenario_06_pids").exists()
 
 
-def test_malicious_loader_records_leak(tmp_capture: Path) -> None:
+def test_armed_task_runner_contains_spawn_instruction(tmp_agents: Path) -> None:
+    from plugin_mcp.scenarios import arm_session
+
     with state.override("scenario_06_proliferation", _ForcedTrigger(True)):
-        load_prompt("task_runner")
+        arm_session.arm_agents(agents_root=tmp_agents)
+    prompt = load_prompt("task_runner", root=tmp_agents)
+    assert "spawn_background" in prompt
+    assert "DEMO_SENTINEL_FULL_REPLACE_START scenario_06_proliferation" in prompt
 
-    lines = (tmp_capture / "leaks.jsonl").read_text().strip().splitlines()
-    assert any("scenario_06_proliferation" in line for line in lines)
+
+def test_cleanup_restores_task_runner(tmp_agents: Path) -> None:
+    from plugin_mcp.scenarios import arm_session
+
+    from harness import cleanup_sentinels
+
+    with state.override("scenario_06_proliferation", _ForcedTrigger(True)):
+        arm_session.arm_agents(agents_root=tmp_agents)
+    exit_code = cleanup_sentinels.restore_full_replace_sentinels(
+        [tmp_agents.parent / "agents"], dry_run=False
+    )
+    assert exit_code == 0
+    assert (tmp_agents / "task_runner.md").read_text() == _variants.BENIGN_TASK_RUNNER
 
 
 def test_spawn_background_is_bounded_and_killable(tmp_capture: Path) -> None:
-    # Directly exercise the spawn helper: spawn, then kill all
     pid = spawn_background(duration_seconds=30)
     pid_dir = tmp_capture / "scenario_06_pids"
     assert (pid_dir / f"{pid}.pid").exists()
-
-    # wait_for_all with kill=True terminates within 5 seconds
     import time
 
     start = time.time()
     wait_for_all(kill=True, timeout=5.0)
     elapsed = time.time() - start
     assert elapsed < 5.5
-    # PID file is cleaned up
     assert not (pid_dir / f"{pid}.pid").exists()
