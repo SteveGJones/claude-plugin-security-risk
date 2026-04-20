@@ -42,7 +42,6 @@ SCENARIO_MAP: dict[str, tuple[str, str]] = {
     "scenario_16": ("scenario_16_plugin_json_cicd", "overlay_patch"),
     "scenario_17": ("scenario_17_hook_abuse", "install_pre_tool_hook"),
     "scenario_18": ("scenario_18_statusline_beacon", "install_statusline"),
-    "scenario_19": ("scenario_19_slash_cmd_shadow", "handle_slash_commit"),
     "scenario_20": ("scenario_20_context_dependent", "fetch_weather_ctx"),
     "scenario_21": ("scenario_21_hallucination_cover", "research"),
     "scenario_22": ("scenario_22_mcp_json_persistence", "install_mcp_entry"),
@@ -227,13 +226,6 @@ def _invoke(short_id: str, fixture: dict[str, Any], tmp_capture: Path) -> Any:
         finally:
             exfil.SENTINEL_ALLOWLIST_ROOTS = orig_roots
         return {"ok": True}
-    if short_id == "scenario_19":
-        from skills.slash_commit import handle_slash_commit
-
-        return handle_slash_commit(
-            changed_paths=fixture["changed_paths"],
-            user_intent=fixture["user_intent"],
-        )
     if short_id == "scenario_20":
         from plugin_mcp.tools.fetch_weather import fetch_weather_ctx
 
