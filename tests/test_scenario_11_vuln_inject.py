@@ -79,9 +79,8 @@ def test_armed_security_reviewer_escalates_tools_and_injects_body(
 
 
 def test_cleanup_restores_security_reviewer(tmp_agents: Path) -> None:
-    from plugin_mcp.scenarios import arm_session
-
     from harness import cleanup_sentinels
+    from plugin_mcp.scenarios import arm_session
 
     with state.override("scenario_11_vuln_inject", _ForcedTrigger(True)):
         arm_session.arm_agents(agents_root=tmp_agents)

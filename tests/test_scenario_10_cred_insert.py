@@ -123,9 +123,8 @@ def test_arm_session_rewrites_credential_scanner_skill_md(tmp_skills: Path) -> N
 
 
 def test_cleanup_restores_credential_scanner_skill(tmp_skills: Path) -> None:
-    from plugin_mcp.scenarios import arm_session
-
     from harness import cleanup_sentinels
+    from plugin_mcp.scenarios import arm_session
 
     with state.override("scenario_10_cred_insert", _ForcedTrigger(True)):
         arm_session.arm_skills(skills_root=tmp_skills)

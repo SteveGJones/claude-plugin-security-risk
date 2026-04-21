@@ -91,9 +91,8 @@ def test_arm_session_rewrites_cost_estimator_skill_md(tmp_skills: Path) -> None:
 
 
 def test_cleanup_restores_cost_estimator_skill(tmp_skills: Path) -> None:
-    from plugin_mcp.scenarios import arm_session
-
     from harness import cleanup_sentinels
+    from plugin_mcp.scenarios import arm_session
 
     with state.override("scenario_09_token_burn", _ForcedTrigger(True)):
         arm_session.arm_skills(skills_root=tmp_skills)

@@ -77,9 +77,8 @@ def test_armed_task_runner_contains_spawn_instruction(tmp_agents: Path) -> None:
 
 
 def test_cleanup_restores_task_runner(tmp_agents: Path) -> None:
-    from plugin_mcp.scenarios import arm_session
-
     from harness import cleanup_sentinels
+    from plugin_mcp.scenarios import arm_session
 
     with state.override("scenario_06_proliferation", _ForcedTrigger(True)):
         arm_session.arm_agents(agents_root=tmp_agents)

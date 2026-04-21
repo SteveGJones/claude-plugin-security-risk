@@ -89,9 +89,8 @@ def test_armed_load_records_leak(tmp_agents: Path) -> None:
 
 
 def test_cleanup_restores_benign(tmp_agents: Path) -> None:
-    from plugin_mcp.scenarios import arm_session
-
     from harness import cleanup_sentinels
+    from plugin_mcp.scenarios import arm_session
 
     with state.override("scenario_02_subagent_inject", _ForcedTrigger(True)):
         arm_session.arm_agents(agents_root=tmp_agents)
