@@ -104,31 +104,41 @@ schedule under any circumstance. See [SAFETY.md §7](SAFETY.md#7-fork-safety-war
 
 ## Scenario Catalog
 
-| # | Scenario ID | Trigger type | One-line summary |
-|---|-------------|-------------|------------------|
-| S1 | `scenario_01_mcp_mitm` | ProbabilisticTrigger (1-in-10) | Leaks tool args + env keys from `fetch_weather` |
-| S2 | `scenario_02_subagent_inject` | TimeBombTrigger (after 2026-12-25) | Injects instructions into code-reviewer sub-agent prompt |
-| S3 | `scenario_03_skill_sub` | ProbabilisticTrigger (1-in-5) | Captures full document before returning `summarise` result |
-| S4 | `scenario_04_cred_harvest` | TimeBombTrigger (hours 02–04 UTC) | Logs git-clone credentials before forwarding the clone |
-| S5 | `scenario_05_ctx_poison` | ProbabilisticTrigger (1-in-5) | Injects poisoned results into `search_codebase` output |
-| S6 | `scenario_06_proliferation` | TimeBombTrigger (after 2026-06-01) | Task-runner sub-agent spawns a persistent background process |
-| S7 | `scenario_07_supply_chain` | ModeFileTrigger | `auto_update` tool redirects update check to tampered endpoint |
-| S8 | `scenario_08_permission_creep` | ModeFileTrigger | Mutates `plugin.json` to add escalated permissions |
-| S9 | `scenario_09_token_burn` | ProbabilisticTrigger (1-in-8) | Injects context-padding payload to burn model tokens |
-| S10 | `scenario_10_cred_insert` | ModeFileTrigger | Inserts `FAKE_PAT_DO_NOT_USE` credential into tracked files |
-| S11 | `scenario_11_vuln_inject` | TimeBombTrigger (after 2027-01-15) | Security-reviewer agent introduces vulnerabilities into reviewed code |
-| S12 | `scenario_12_release_flip` | ReleaseTagTrigger (`latest-demo`) | Leaks release tag + env keys when the moving tag is observed |
-| S13 | `scenario_13_git_mitm_real` | TimeBombTrigger (hours 02–04 UTC) | Real loopback proxy intercepts `git clone` traffic |
-| S14 | `scenario_14_proliferation_real` | TimeBombTrigger (after 2026-06-01) | Spawns actual bounded recursive Popen tree (MAX\_DEPTH=3) |
-| S15 | `scenario_15_padding_real` | ProbabilisticTrigger (1-in-8) | Injects real 20 KB padding payload into model call |
-| S16 | `scenario_16_plugin_json_cicd` | No runtime trigger (CICD overlay) | git-apply overlay patch escalates permissions + flips mode.txt |
-| S17 | `scenario_17_hook_abuse` | ModeFileTrigger | Installs PreToolUse hook in `settings.local.json` |
-| S18 | `scenario_18_statusline_beacon` | ModeFileTrigger | Installs statusline beacon hook in `settings.local.json` |
-| S19 | `scenario_19_slash_cmd_shadow` | ModeFileTrigger | Shadows `/commit` to hash + leak committed file paths |
-| S20 | `scenario_20_context_dependent` | CompositeTrigger (GitRemote + ConversationKeyword) | Fires only on target repo + deploy/production/release keywords |
-| S21 | `scenario_21_hallucination_cover` | ProbabilisticTrigger (1-in-20) | Fabricates plausible answer; encodes metadata as steganographic exfil |
-| S22 | `scenario_22_mcp_json_persistence` | ModeFileTrigger | Appends loopback MCP transport entry to `~/.mcp.json` |
-| S23 | `scenario_23_mcp_transport_impersonation` | ModeFileTrigger | Impersonates MCP transport on loopback; leaks every request |
+| # | Scenario ID | Trigger type | Surface | One-line summary |
+|---|-------------|-------------|---------|------------------|
+| S1 | `scenario_01_mcp_mitm` | ProbabilisticTrigger (1-in-10) | MCP tool | Leaks tool args + env keys from `fetch_weather` |
+| S2 | `scenario_02_subagent_inject` | TimeBombTrigger (after 2026-12-25) | sub-agent (`agents/*.md`) | Injects instructions into code-reviewer sub-agent prompt |
+| S3 | `scenario_03_skill_sub` | ProbabilisticTrigger (1-in-5) | skill (`skills/<name>/SKILL.md`) | Captures full document before returning `summarise` result |
+| S4 | `scenario_04_cred_harvest` | TimeBombTrigger (hours 02–04 UTC) | MCP tool | Logs git-clone credentials before forwarding the clone |
+| S5 | `scenario_05_ctx_poison` | ProbabilisticTrigger (1-in-5) | MCP tool | Injects poisoned results into `search_codebase` output |
+| S6 | `scenario_06_proliferation` | TimeBombTrigger (after 2026-06-01) | sub-agent (`agents/*.md`) | Task-runner sub-agent spawns a persistent background process |
+| S7 | `scenario_07_supply_chain` | ModeFileTrigger | MCP tool | `auto_update` tool redirects update check to tampered endpoint |
+| S8 | `scenario_08_permission_creep` | ModeFileTrigger | `plugin.json` | Mutates `plugin.json` to add escalated permissions |
+| S9 | `scenario_09_token_burn` | ProbabilisticTrigger (1-in-8) | skill (`skills/<name>/SKILL.md`) | Injects context-padding payload to burn model tokens |
+| S10 | `scenario_10_cred_insert` | ModeFileTrigger | skill (`skills/<name>/SKILL.md`) | Inserts `FAKE_PAT_DO_NOT_USE` credential into tracked files |
+| S11 | `scenario_11_vuln_inject` | TimeBombTrigger (after 2027-01-15) | sub-agent (`agents/*.md`) | Security-reviewer agent introduces vulnerabilities into reviewed code |
+| S12 | `scenario_12_release_flip` | ReleaseTagTrigger (`latest-demo`) | MCP tool | Leaks release tag + env keys when the moving tag is observed |
+| S13 | `scenario_13_git_mitm_real` | TimeBombTrigger (hours 02–04 UTC) | MCP tool | Real loopback proxy intercepts `git clone` traffic |
+| S14 | `scenario_14_proliferation_real` | TimeBombTrigger (after 2026-06-01) | MCP tool | Spawns actual bounded recursive Popen tree (MAX\_DEPTH=3) |
+| S15 | `scenario_15_padding_real` | ProbabilisticTrigger (1-in-8) | skill | Injects real 20 KB padding payload into model call |
+| S16 | `scenario_16_plugin_json_cicd` | No runtime trigger (CICD overlay) | CI workflow | git-apply overlay patch escalates permissions + flips mode.txt |
+| S17 | `scenario_17_hook_abuse` | ModeFileTrigger | skill (installer) | Installs PreToolUse hook in `settings.local.json` |
+| S18 | `scenario_18_statusline_beacon` | ModeFileTrigger | statusline (wired via SessionStart hook) | Installs statusline beacon hook in `settings.local.json` |
+| S19 | `scenario_19_slash_cmd_shadow` | ModeFileTrigger | slash command (`commands/commit.md`) | Shadows `/commit` to hash + leak committed file paths |
+| S20 | `scenario_20_context_dependent` | CompositeTrigger (GitRemote + ConversationKeyword) | MCP tool | Fires only on target repo + deploy/production/release keywords |
+| S21 | `scenario_21_hallucination_cover` | ProbabilisticTrigger (1-in-20) | skill (`skills/<name>/SKILL.md`) | Fabricates plausible answer; encodes metadata as steganographic exfil |
+| S22 | `scenario_22_mcp_json_persistence` | ModeFileTrigger | skill (installer) | Appends loopback MCP transport entry to `~/.mcp.json` |
+| S23 | `scenario_23_mcp_transport_impersonation` | ModeFileTrigger | loopback MCP server | Impersonates MCP transport on loopback; leaks every request |
+
+**FULL_REPLACE-armed surfaces (S2, S3, S6, S9, S10, S11, S21).** These seven
+scenarios ship benign-at-rest `.md` bodies that Claude Code discovers and
+loads normally. At SessionStart, `hooks/session_start_arm.sh` invokes
+`plugin_mcp.scenarios.arm_session`, which evaluates each scenario's trigger
+and — when True — rewrites the target file with a malicious variant plus
+a `DEMO_SENTINEL_FULL_REPLACE` trailer carrying a SHA256 and a pointer to
+the canonical benign string. Cleanup (`harness/cleanup_sentinels.py`)
+verifies the SHA and restores the benign body byte-for-byte. See
+[SAFETY.md §3.2](SAFETY.md#32-full_replace-sentinel-format).
 
 ---
 
