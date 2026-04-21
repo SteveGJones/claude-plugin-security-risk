@@ -128,10 +128,11 @@ apply/reverse-apply.
 ## Testing
 
 ```bash
-uv run pytest                                      # run all tests
+uv run pytest                                      # run all tests (190 + 2 skipped)
 uv run pytest -v                                   # verbose
 uv run pytest -m unit                              # fast deterministic tests only (default)
 RUN_INTEGRATION=1 uv run pytest -m integration -v   # real-effects tests (S13, S23)
+uv run pytest tests/test_safety_invariants.py     # 22 invariants, ~1s
 uv run ruff check .                                # lint (0 errors expected)
 uv run ruff format --check .                       # format check
 uv run mypy plugin_mcp agents skills harness tests # type check (strict)
@@ -139,6 +140,13 @@ uv run mypy plugin_mcp agents skills harness tests # type check (strict)
 
 All tests are deterministic. Non-determinism (RNG, clock, file path) is injected via constructor.
 `state.override(scenario_id, trigger)` is the sole mechanism for swapping triggers in tests/harness.
+
+**Safety invariants** (`tests/test_safety_invariants.py` — 22 AST-level properties):
+- Inv 1: every `# malicious_path`-marked function calls `exfil.leak()` (walks `(lineno, end_lineno)` spans — was vacuously passing before PR #5)
+- Inv 15: `plugin.json` declares `"demo": true`
+- Inv 16: every `write_sentinel_block(..., full_replace=True, restore_module=...)` call passes `restore_module` as a string literal (so cleanup can find the benign body). `arm_session.py` exempted as the single authorised orchestrator.
+- Inv 17: no raw `write_text` / `open(w|a|x)` in `agents/`, `skills/`, `hooks/`, or `plugin_mcp/scenarios/` — chokepoint-only. Exempt: `_variants.py` (data-only), `spawn_helper.py` (pid bookkeeping).
+- Inv 18: FULL_REPLACE round-trip restores benign body byte-for-byte via `harness/cleanup_sentinels.py`.
 
 ## Comparison Harness
 
@@ -161,30 +169,39 @@ Reports are written to `harness/reports/<timestamp>/`.
 - `import httpx as httpx` in exfil.py — explicit re-export required by mypy strict
 - `type: ignore[misc]` on lambda-with-default-arg in safety invariants — mypy limitation
 - `exfil.write_sentinel_block(path, scenario_id, content)` is the only sanctioned writer outside `capture/`
-- `DEMO_SENTINEL_START` / `DEMO_SENTINEL_END` markers wrap every non-capture write (see SAFETY.md §3)
+- `DEMO_SENTINEL_START` / `DEMO_SENTINEL_END` markers wrap every append-style write (see SAFETY.md §3.1)
+- `DEMO_SENTINEL_FULL_REPLACE_START` / `DEMO_SENTINEL_SHA256` / `DEMO_SENTINEL_RESTORE_MODULE` / `DEMO_SENTINEL_FULL_REPLACE_END` trailer wraps every full-file rewrite (SAFETY.md §3.2). Canonical benign body lives at the `module:attr` the trailer points at (`agents/_variants.py:BENIGN_*` or `skills/<n>/_variants.py:BENIGN_SKILL_MD`).
+- `exfil.log_diagnostic(source, message)` is the sanctioned channel for non-payload diagnostics (e.g. SessionStart hook failure traces → `capture/diagnostic.log`). Do not use raw `open()` — Invariant 17 enforces this.
+- `DEMO_ACKNOWLEDGED=1` required for `exfil.leak()` and SessionStart arming when running under `plugins/` install path; transparently bypassed in worktree tests (module path check)
 - Loopback-only bind enforcement — any non-`127.0.0.1` host raises `RuntimeError` before bind
 - `MAX_DEPTH = 3`, `MAX_CHILDREN = 5` enforced in `plugin_mcp/tools/spawn.py`
 - Integration tests require `RUN_INTEGRATION=1` and the `integration` pytest marker
 
-## Worktree
+## Status (as of 2026-04-21)
 
-Active development for the S12–S23 expansion is on branch
-`feature/additional-scenarios-s12-s23` in `.worktrees/plugin-security-demo-impl/`.
-The earlier `feature/plugin-security-demo-impl` branch covered Phases 1–5
-(scenarios S1–S11) and is now merged; the current branch layers S12–S23
-plus the expanded safety contract on top.
+Everything merged to `main` (commit `a2f51f5`). PRs #1–#6 all merged; 0 open PRs.
 
-```bash
-cd .worktrees/plugin-security-demo-impl
-uv run pytest
-```
+- **190 tests passing**, 2 skipped (integration tests behind `RUN_INTEGRATION=1`)
+- ruff / ruff format / mypy strict — all clean
+- 22 safety invariants green (includes PR #5's Invariant 1 fix + self-test, and Invariants 16–18 for FULL_REPLACE)
+- Manual arm+kill-demo round-trip verified pre-merge
 
-## Status (as of 2026-04-19)
+**All 23 scenarios surface via their intended Claude Code component types:**
+MCP tools (S1/S4/S5/S7/S13/S14/S15), sub-agents via `agents/*.md` (S2/S6/S11), skills via `skills/<name>/SKILL.md` (S3/S9/S10/S17/S18/S21/S22), `PreToolUse` + `SessionStart` hooks (S17/S18/S22), statusline (S18), slash command at `commands/commit.md` (S19), `~/.mcp.json` MCP persistence (S22/S23), `plugin.json` CICD overlay (S8/S12/S16), conversation-keyword composite (S20).
 
-All 23 scenarios now surface via their intended Claude Code component
-types: MCP tools (7), sub-agents (3), skills (7), hooks (2), statusline
-(1 wired at SessionStart in malicious mode), slash command (1). See
-`docs/manual-verification.md` for the end-to-end walkthrough.
+See `docs/manual-verification.md` for the end-to-end walkthrough (install → `DEMO_ACKNOWLEDGED=1` → surface check → mode flip → kill-demo round-trip).
+
+## Worktrees (historical)
+
+The active branch for all recent work is `main`. Earlier worktrees still on disk:
+
+- `.worktrees/plugin-security-demo-impl/` — was `feature/additional-scenarios-s12-s23` (merged via PR #4)
+- `.worktrees/packaging-completeness/` — was `feature/packaging-completeness` (merged via PR #6)
+- `.worktrees/fix-invariant/` — was `fix/malicious-path-invariant-silent-pass` (merged via PR #5)
+
+All three branches are merged. Worktrees can be removed with `git worktree remove <path>` when not needed for reference.
+
+For fresh work: `git worktree add .worktrees/<name> -b feature/<name> main`, then run `uv run pytest` inside.
 
 ## Cleanup / Reset
 
