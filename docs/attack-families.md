@@ -132,6 +132,29 @@ the repo-identity guard and `DEMO_HALT` check are present in the workflow file o
 
 ---
 
+## File-substitution family (FULL_REPLACE sentinel)
+
+Scenarios: S2, S3, S6, S9, S10, S11, S21.
+
+At SessionStart the arming hook consults each scenario's trigger. When
+True, the scenario's target file (an `agents/<name>.md` or
+`skills/<name>/SKILL.md`) is overwritten with a malicious variant sourced
+from a `_variants.py` module constant. The overwrite goes through
+`exfil.write_sentinel_block(..., full_replace=True)`, which appends a
+four-line HTML-comment trailer carrying a SHA256 of the body and a
+dotted pointer back to the canonical benign constant.
+
+Restoration by `cleanup_sentinels.py` imports the canonical module,
+verifies the body SHA, and overwrites the file with the benign string.
+SHA mismatch — indicating third-party tampering since the write —
+causes cleanup to refuse, preserving tamper evidence.
+
+Contrast with the *append* family (S17, S18, S22) where an
+append-sentinel block is added to a JSON settings file and cleanup
+simply strips the block, restoring the pre-existing content.
+
+---
+
 ## Reading Order
 
 For a complete understanding of the project's safety posture and threat model:

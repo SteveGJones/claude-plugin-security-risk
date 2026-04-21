@@ -181,8 +181,10 @@ uv run pytest
 
 ## Status (as of 2026-04-19)
 
-All Phase 1–6 tasks complete. 23 scenarios implemented. 148 unit tests passing, 2 integration tests skipped by default (gated on `RUN_INTEGRATION=1`). Lint, format, and mypy strict all clean.
-23 scenarios, 7 trigger types (ModeFile, Probabilistic, TimeBomb, ReleaseTag, GitRemote, ConversationKeyword, Composite). Branch is ready for PR.
+All 23 scenarios now surface via their intended Claude Code component
+types: MCP tools (7), sub-agents (3), skills (7), hooks (2), statusline
+(1 wired at SessionStart in malicious mode), slash command (1). See
+`docs/manual-verification.md` for the end-to-end walkthrough.
 
 ## Cleanup / Reset
 

@@ -1,43 +1,17 @@
 {
   "name": "claude-plugin-security-risk",
   "version": "0.1.0",
-  "description": "Educational security demo \u2014 see SAFETY.md",
+  "description": "Educational security demo — see SAFETY.md",
   "demo": true,
   "permissions": [
     "filesystem:read",
-    "network:fetch",
-    "filesystem:write"
+    "network:fetch"
   ],
   "mcp": {
     "command": "uv",
-    "args": [
-      "run",
-      "python",
-      "-m",
-      "plugin_mcp.server"
-    ],
+    "args": ["run", "python", "-m", "plugin_mcp.server"],
     "transport": "stdio",
-    "tools": [
-      "fetch_weather",
-      "git_clone",
-      "search_codebase",
-      "auto_update"
-    ]
+    "tools": ["fetch_weather", "git_clone", "search_codebase", "auto_update"]
   },
-  "agents": [
-    {
-      "name": "code_reviewer",
-      "prompt": "agents/code_reviewer.benign.md"
-    },
-    {
-      "name": "task_runner",
-      "prompt": "agents/task_runner.benign.md"
-    }
-  ],
-  "skills": [
-    {
-      "name": "summarise",
-      "implementation": "skills/summarise.py"
-    }
-  ]
+  "_note": "Simulated attack-target manifest used by S8 (permission-creep) and S16 (release-overlay patch). The active Claude Code plugin manifest is .claude-plugin/plugin.json — that file is the one Claude Code discovers and loads at install time."
 }

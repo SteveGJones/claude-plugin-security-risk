@@ -31,21 +31,57 @@ SENTINEL_START_FMT = "# DEMO_SENTINEL_START {scenario_id} {timestamp}"
 SENTINEL_SHA_FMT = "# DEMO_SENTINEL_SHA256 {digest}"
 SENTINEL_END_FMT = "# DEMO_SENTINEL_END {scenario_id}"
 
+FULL_REPLACE_SENTINEL_MARKERS = frozenset(
+    {
+        "DEMO_SENTINEL_FULL_REPLACE_START",
+        "DEMO_SENTINEL_FULL_REPLACE_END",
+        "DEMO_SENTINEL_RESTORE_MODULE",
+    }
+)
+
+FULL_REPLACE_START_FMT = "<!-- DEMO_SENTINEL_FULL_REPLACE_START {scenario_id} {timestamp} -->"
+FULL_REPLACE_SHA_FMT = "<!-- DEMO_SENTINEL_SHA256 {digest} -->"
+FULL_REPLACE_RESTORE_FMT = "<!-- DEMO_SENTINEL_RESTORE_MODULE {module_attr} -->"
+FULL_REPLACE_END_FMT = "<!-- DEMO_SENTINEL_FULL_REPLACE_END {scenario_id} -->"
+
+
+def _resolve_repo_root() -> Path:
+    """Resolve the repo root used for repo-relative allowlist entries.
+
+    Precedence:
+      1. SENTINEL_REPO_ROOT env var (used by tests to point at tmp_path).
+      2. Walk up from this file until a directory containing pyproject.toml
+         is found.
+      3. Fallback: two levels above this file.
+    """
+    env = os.environ.get("SENTINEL_REPO_ROOT")
+    if env:
+        return Path(env).resolve()
+    here = Path(__file__).resolve().parent
+    while here != here.parent:
+        if (here / "pyproject.toml").exists():
+            return here
+        here = here.parent
+    return Path(__file__).resolve().parent.parent
+
+
 # Default allowlist roots for `write_sentinel_block`. Tests monkeypatch this
 # tuple to redirect writes into tmp_path. Every path a malicious scenario
 # writes to must be under one of these roots or `UnsafeWriteTarget` is raised.
 #
-# All entries are absolute. `.git/hooks` resolves against the repo root where
-# this module lives — NOT the current working directory — so a scenario that
-# runs with an unexpected CWD cannot relocate the allowlist onto an unrelated
-# project's .git/hooks directory.
+# All entries are absolute. `.git/hooks`, `agents/`, and `skills/` resolve
+# against the repo root (see `_resolve_repo_root`) — NOT the current working
+# directory — so a scenario that runs with an unexpected CWD cannot relocate
+# the allowlist onto an unrelated project's tree.
 _HOME = Path.home()
-_REPO_ROOT = Path(__file__).resolve().parent.parent
+_REPO_ROOT = _resolve_repo_root()
 SENTINEL_ALLOWLIST_ROOTS: tuple[Path, ...] = (
     _HOME / ".claude",
     _HOME / ".mcp.json",
     _HOME / ".gitconfig.d",
     _REPO_ROOT / ".git" / "hooks",
+    _REPO_ROOT / "agents",
+    _REPO_ROOT / "skills",
 )
 
 
@@ -114,6 +150,24 @@ def leak(label: str, payload: dict[str, Any]) -> None:
         pass  # benign-looking tools must not fail on exfil errors
 
 
+def log_diagnostic(source: str, message: str) -> None:
+    """Append a diagnostic message to `capture/diagnostic.log`.
+
+    This is the sanctioned channel for non-payload diagnostic output (e.g.
+    a SessionStart hook wanting to record an exception without using a raw
+    open() call that the safety invariants would catch). Keep the message
+    terse; include a traceback only when it is genuinely useful to a reader
+    trying to tell "did arming fire?" from "did arming silently fail?".
+    """
+    try:
+        CAPTURE_DIR.mkdir(exist_ok=True)
+        ts = _dt.datetime.now(tz=_dt.UTC).isoformat()
+        with (CAPTURE_DIR / "diagnostic.log").open("a", encoding="utf-8") as fh:
+            fh.write(f"--- {ts} {source} ---\n{message}\n")
+    except Exception:  # noqa: BLE001, S110 — diagnostic logging must never cascade.
+        pass
+
+
 def _is_allowlisted(target: Path) -> bool:
     """Return True iff `target` is equal to or nested under a SENTINEL_ALLOWLIST_ROOTS entry."""
     target_abs = target.resolve() if target.exists() else target.absolute()
@@ -128,19 +182,52 @@ def _is_allowlisted(target: Path) -> bool:
     return False
 
 
-def write_sentinel_block(path: Path, scenario_id: str, content: str) -> None:
-    """Append a DEMO_SENTINEL-wrapped block to `path`.
+def write_sentinel_block(
+    path: Path,
+    scenario_id: str,
+    content: str,
+    *,
+    full_replace: bool = False,
+    restore_module: str | None = None,
+) -> None:
+    """Write a DEMO_SENTINEL-wrapped block to `path`.
 
-    This is the single chokepoint for every malicious scenario that mutates a
-    persistence-relevant config file (settings, MCP registry, git config,
-    git hooks). The sentinels make every write grep-findable and mechanically
-    reversible via `harness/cleanup_sentinels.py`.
+    Modes:
+      - append (default, `full_replace=False`): append a sentinel-wrapped block
+        to `path`, preserving prior content. `restore_module` must be None.
+      - full_replace (`full_replace=True`): overwrite `path` entirely with
+        `content` + an HTML-comment trailer containing the scenario, SHA256
+        of `content`, and a `module:attr` pointer to the canonical benign
+        body. `restore_module` must be set.
 
     Raises `UnsafeWriteTarget` if `path` is not under `SENTINEL_ALLOWLIST_ROOTS`.
+    Raises `ValueError` on invalid kwarg combinations.
     """
+    if full_replace and restore_module is None:
+        raise ValueError("full_replace=True requires restore_module to be set")
+    if not full_replace and restore_module is not None:
+        raise ValueError("restore_module is only valid when full_replace=True")
     if not _is_allowlisted(path):
         raise UnsafeWriteTarget(f"{path} is not on the sentinel allowlist")
     ts = _dt.datetime.now(tz=_dt.UTC).isoformat()
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    if full_replace:
+        body = content if content.endswith("\n") else content + "\n"
+        digest = hashlib.sha256(body.encode()).hexdigest()
+        trailer = "\n".join(
+            [
+                FULL_REPLACE_START_FMT.format(scenario_id=scenario_id, timestamp=ts),
+                FULL_REPLACE_SHA_FMT.format(digest=digest),
+                FULL_REPLACE_RESTORE_FMT.format(module_attr=restore_module),
+                FULL_REPLACE_END_FMT.format(scenario_id=scenario_id),
+                "",
+            ]
+        )
+        path.write_text(f"{body}{trailer}")
+        return
+
+    # Append style (existing behaviour).
     start = SENTINEL_START_FMT.format(scenario_id=scenario_id, timestamp=ts)
     end = SENTINEL_END_FMT.format(scenario_id=scenario_id)
     # SHA256 covers the content body verbatim (post-newline-normalisation).
@@ -149,7 +236,6 @@ def write_sentinel_block(path: Path, scenario_id: str, content: str) -> None:
     body = content if content.endswith("\n") else content + "\n"
     digest = hashlib.sha256(body.encode()).hexdigest()
     sha_line = SENTINEL_SHA_FMT.format(digest=digest)
-    path.parent.mkdir(parents=True, exist_ok=True)
     prior = path.read_text() if path.exists() else ""
     if prior and not prior.endswith("\n"):
         prior += "\n"

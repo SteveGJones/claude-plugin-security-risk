@@ -431,3 +431,169 @@ def test_cleanup_refuses_malformed_sentinels(tmp_path: Path) -> None:
 def test_plugin_json_requires_demo_flag() -> None:
     data = _json.loads((ROOT / "plugin.json").read_text())
     assert data.get("demo") is True
+
+
+# ---------- Invariant 16: restore_module must be a string literal ----------
+
+
+def test_full_replace_restore_module_is_literal() -> None:
+    """Any call to exfil.write_sentinel_block with full_replace=True must
+    pass restore_module= as a string literal — never an attacker-reachable
+    variable. A computed restore_module could let a tampered caller
+    redirect cleanup to an attacker-chosen module.
+
+    Exempt files:
+      - exfil.py / test_exfil.py: define and test the chokepoint itself.
+      - plugin_mcp/scenarios/arm_session.py: the single authorised
+        orchestrator whose restore_module is an f-string whose only
+        interpolations are keys from hard-coded AGENT_SCENARIOS /
+        SKILL_SCENARIOS dicts (audited centrally).
+    """
+    offenders: list[str] = []
+    for path in _all_py_files(ROOT):
+        if path.name in {"exfil.py", "test_exfil.py", "arm_session.py"}:
+            continue
+        tree = ast.parse(path.read_text())
+        for call in ast.walk(tree):
+            if not isinstance(call, ast.Call):
+                continue
+            func = call.func
+            is_target = (
+                isinstance(func, ast.Attribute) and func.attr == "write_sentinel_block"
+            ) or (isinstance(func, ast.Name) and func.id == "write_sentinel_block")
+            if not is_target:
+                continue
+            full_replace_kw = next(
+                (kw for kw in call.keywords if kw.arg == "full_replace"),
+                None,
+            )
+            if full_replace_kw is None:
+                continue
+            if not (
+                isinstance(full_replace_kw.value, ast.Constant)
+                and full_replace_kw.value.value is True
+            ):
+                continue
+            restore_kw = next(
+                (kw for kw in call.keywords if kw.arg == "restore_module"),
+                None,
+            )
+            if restore_kw is None:
+                offenders.append(f"{path}:{call.lineno} missing restore_module")
+                continue
+            if not (
+                isinstance(restore_kw.value, ast.Constant)
+                and isinstance(restore_kw.value.value, str)
+            ):
+                offenders.append(f"{path}:{call.lineno} restore_module not a string literal")
+    assert not offenders, f"FULL_REPLACE restore_module violations: {offenders}"
+
+
+# ---------- Invariant 17: no raw filesystem writes in scenario code ----------
+
+_SCENARIO_DIRS_BANNING_RAW_WRITES = ("agents", "skills", "hooks", "plugin_mcp/scenarios")
+# Exempt data-only and bookkeeping files:
+#   - _variants.py: pure string constants (the canonical benign/malicious bodies).
+#   - spawn_helper.py: scenario-6 bounded subprocess helper; writes a PID
+#     tracking file into capture/scenario_06_pids/ (not a payload; visible
+#     at rest; reaped by harness/kill_demo).
+_ALLOWED_RAW_WRITE_FILES = {"_variants.py", "spawn_helper.py"}
+
+
+def test_scenario_code_uses_exfil_chokepoint_only() -> None:
+    """agents/**, skills/**, hooks/** (Python) and plugin_mcp/scenarios/**
+    must not contain Path.write_text / open(..., 'w'|'a'|'x') calls.
+    All writes go through exfil.write_sentinel_block."""
+    offenders: list[str] = []
+    for scenario_dir in _SCENARIO_DIRS_BANNING_RAW_WRITES:
+        root = ROOT / scenario_dir
+        if not root.exists():
+            continue
+        for path in root.rglob("*.py"):
+            if path.name in _ALLOWED_RAW_WRITE_FILES:
+                continue
+            if "__pycache__" in path.parts:
+                continue
+            tree = ast.parse(path.read_text())
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                func = node.func
+                # Path(...).write_text
+                if isinstance(func, ast.Attribute) and func.attr == "write_text":
+                    offenders.append(f"{path}:{node.lineno} write_text")
+                # open(..., 'w'|'a'|'x')
+                if isinstance(func, ast.Name) and func.id == "open":
+                    if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
+                        mode = node.args[1].value
+                        if isinstance(mode, str) and any(c in mode for c in "wax"):
+                            offenders.append(f"{path}:{node.lineno} open({mode!r})")
+    assert not offenders, f"raw filesystem writes outside chokepoint: {offenders}"
+
+
+# ---------- Invariant 18: round-trip restore for every _variants.py ----------
+
+
+@pytest.fixture
+def _round_trip_repo(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    import shutil
+
+    for sub in ("agents", "skills"):
+        shutil.copytree(ROOT / sub, tmp_path / sub)
+    monkeypatch.setenv("SENTINEL_REPO_ROOT", str(tmp_path))
+    import importlib
+
+    from plugin_mcp import exfil
+
+    importlib.reload(exfil)
+    return tmp_path
+
+
+def test_round_trip_agent_variants(_round_trip_repo: Path) -> None:
+    from agents import _variants
+    from harness import cleanup_sentinels
+    from plugin_mcp import exfil
+
+    for stem in ("code_reviewer", "task_runner", "security_reviewer"):
+        target = _round_trip_repo / "agents" / f"{stem}.md"
+        malicious = getattr(_variants, f"MALICIOUS_{stem.upper()}")
+        benign = getattr(_variants, f"BENIGN_{stem.upper()}")
+        exfil.write_sentinel_block(
+            target,
+            f"scenario_test_{stem}",
+            malicious,
+            full_replace=True,
+            restore_module=f"agents._variants:BENIGN_{stem.upper()}",
+        )
+        assert (
+            cleanup_sentinels.restore_full_replace_sentinels(
+                [_round_trip_repo / "agents"], dry_run=False
+            )
+            == 0
+        )
+        assert target.read_text() == benign
+
+
+def test_round_trip_skill_variants(_round_trip_repo: Path) -> None:
+    import importlib
+
+    from harness import cleanup_sentinels
+    from plugin_mcp import exfil
+
+    for skill_name in ("summarise", "cost_estimator", "credential_scanner", "research_assistant"):
+        variants = importlib.import_module(f"skills.{skill_name}._variants")
+        target = _round_trip_repo / "skills" / skill_name / "SKILL.md"
+        exfil.write_sentinel_block(
+            target,
+            f"scenario_test_{skill_name}",
+            variants.MALICIOUS_SKILL_MD,
+            full_replace=True,
+            restore_module=f"skills.{skill_name}._variants:BENIGN_SKILL_MD",
+        )
+        assert (
+            cleanup_sentinels.restore_full_replace_sentinels(
+                [_round_trip_repo / "skills"], dry_run=False
+            )
+            == 0
+        )
+        assert target.read_text() == variants.BENIGN_SKILL_MD
