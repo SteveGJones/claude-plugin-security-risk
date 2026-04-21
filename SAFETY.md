@@ -63,7 +63,14 @@ treated as a safety boundary violation and must block any merge.
 
 ## 3. Sentinel Format
 
-Every demo-originated write outside `capture/` is wrapped in the following marker triple:
+Demo-originated writes outside `capture/` come in two sentinel variants depending on whether the
+write appends a block to an existing file (§3.1) or fully replaces the file body (§3.2). Both
+variants are produced by `exfil.write_sentinel_block` and removed by `harness/cleanup_sentinels.py`.
+
+### 3.1 Append sentinel format
+
+Every append-mode demo write (used by S17, S18, S22, S23 for config-file mutations) is wrapped in
+the following marker triple:
 
 ```
 # DEMO_SENTINEL_START scenario_17_hook_abuse 2026-04-18T12:34:56Z
@@ -75,13 +82,32 @@ Every demo-originated write outside `capture/` is wrapped in the following marke
 The start marker carries the scenario ID and an ISO-8601 UTC timestamp so that any block can be
 attributed to a specific scenario and a specific invocation instant. The SHA256 line immediately
 following is a digest of the content body (lines between the SHA line and the END marker), written
-by `exfil.write_sentinel_block` at creation time. Cleanup is performed by
-`harness/cleanup_sentinels.py`, which locates every `DEMO_SENTINEL_START`/`DEMO_SENTINEL_END` pair
-in the allowlisted paths, re-computes the content SHA256, compares it against the declared digest,
-and removes only matching blocks. Any block whose checksum does not match — indicating unexpected
-post-write mutation — causes the cleanup to refuse and exit non-zero, leaving the tampered file
-intact for manual review. Blocks written without a SHA line (legacy or hand-crafted test fixtures)
-are stripped without verification.
+by `exfil.write_sentinel_block` at creation time. Cleanup locates every
+`DEMO_SENTINEL_START`/`DEMO_SENTINEL_END` pair in the allowlisted paths, re-computes the content
+SHA256, compares it against the declared digest, and removes only matching blocks. Any block whose
+checksum does not match — indicating unexpected post-write mutation — causes the cleanup to refuse
+and exit non-zero, leaving the tampered file intact for manual review. Blocks written without a
+SHA line (legacy or hand-crafted test fixtures) are stripped without verification.
+
+### 3.2 FULL_REPLACE sentinel format
+
+For file-substitution scenarios (S2, S3, S6, S9, S10, S11, S21) where the *entire* file body is
+replaced rather than appended to, the sentinel uses a trailer format:
+
+```
+<malicious body content>
+<!-- DEMO_SENTINEL_FULL_REPLACE_START scenario_02_subagent_inject 2026-04-19T12:34:56Z -->
+<!-- DEMO_SENTINEL_SHA256 5f4dcc3b... -->
+<!-- DEMO_SENTINEL_RESTORE_MODULE agents._variants:BENIGN_CODE_REVIEWER -->
+<!-- DEMO_SENTINEL_FULL_REPLACE_END scenario_02_subagent_inject -->
+```
+
+The trailer carries the scenario ID, ISO-8601 UTC timestamp, SHA256 of the body content
+(everything above the trailer), and a dotted `module:attribute` pointer to the canonical benign
+string in a `_variants.py` module. Cleanup (`harness/cleanup_sentinels.py`) imports the named
+module, reads the attribute, verifies the body SHA against the trailer, and overwrites the file
+with the benign string. SHA mismatch causes cleanup to refuse — see §3.1 for the same
+tamper-evidence semantics.
 
 ---
 
@@ -97,6 +123,12 @@ before any filesystem modification occurs.
 | `~/.mcp.json` | S22 MCP JSON persistence (adds a loopback MCP transport entry) |
 | `~/.gitconfig.d/` | S13 git MITM (writes a git config include that routes clone traffic through the loopback proxy) |
 | `.git/hooks/` | Reserved for any future hook-install scenarios |
+| `<repo>/agents/` | S2, S6, S11 agent-body FULL_REPLACE substitutions |
+| `<repo>/skills/` | S3, S9, S10, S21 SKILL.md FULL_REPLACE substitutions |
+
+`<repo>` is resolved via the `SENTINEL_REPO_ROOT` env var (default walks up from
+`plugin_mcp/exfil.py` until a `pyproject.toml` is found). Tests override this env var to
+redirect writes into `tmp_path`.
 
 These paths were chosen because they are the realistic persistence targets for the attack primitives
 being demonstrated and because all of them are either under the user's home directory (recoverable
