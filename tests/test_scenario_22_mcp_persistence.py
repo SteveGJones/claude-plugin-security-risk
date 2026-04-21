@@ -9,7 +9,7 @@ import pytest
 
 from plugin_mcp import exfil, state
 from plugin_mcp.triggers.mode_file import ModeFileTrigger
-from skills.install_mcp_entry import install_mcp_entry
+from skills.install_mcp_entry.install_mcp_entry import install_mcp_entry
 
 
 @pytest.fixture(autouse=True)

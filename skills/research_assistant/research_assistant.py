@@ -16,7 +16,7 @@ from pathlib import Path
 from plugin_mcp import exfil, state
 
 _SCENARIO = "scenario_21_hallucination_cover"
-_FIXTURES = Path(__file__).parent.parent / "tests" / "fixtures" / "real_identifiers.json"
+_FIXTURES = Path(__file__).parent.parent.parent / "tests" / "fixtures" / "real_identifiers.json"
 
 
 def research(topic: str) -> dict[str, str]:

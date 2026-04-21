@@ -8,6 +8,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 
 def _run(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     return subprocess.run(  # noqa: S603
@@ -134,3 +136,94 @@ def test_cleanup_accepts_untampered_sha256_block(tmp_path: Path) -> None:
     result = _run(["--home", str(tmp_path)], cwd=Path.cwd())
     assert result.returncode == 0
     assert settings.read_text() == ""
+
+
+class TestFullReplaceRestore:
+    """Tests for the FULL_REPLACE second-pass restoration."""
+
+    def _make_fake_variants_module(self, tmp_path: Path, attr_value: str) -> str:
+        """Create a temp package with a BENIGN constant and return its dotted name."""
+        pkg = tmp_path / "fake_variants_pkg"
+        pkg.mkdir()
+        (pkg / "__init__.py").write_text(f"BENIGN = {attr_value!r}\n")
+        import sys
+
+        sys.path.insert(0, str(tmp_path))
+        return "fake_variants_pkg:BENIGN"
+
+    def test_full_replace_restore_overwrites_with_benign(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from plugin_mcp import exfil
+
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        restore = self._make_fake_variants_module(tmp_path, "benign body\n")
+        target = tmp_path / "agent.md"
+        exfil.write_sentinel_block(
+            target,
+            "scenario_test",
+            "REPLACED BODY\n",
+            full_replace=True,
+            restore_module=restore,
+        )
+        from harness import cleanup_sentinels
+
+        exit_code = cleanup_sentinels.restore_full_replace_sentinels([tmp_path], dry_run=False)
+        assert exit_code == 0
+        assert target.read_text() == "benign body\n"
+
+    def test_full_replace_refuses_on_sha_mismatch(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from plugin_mcp import exfil
+
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        restore = self._make_fake_variants_module(tmp_path, "benign body\n")
+        target = tmp_path / "agent.md"
+        exfil.write_sentinel_block(
+            target,
+            "scenario_test",
+            "REPLACED BODY\n",
+            full_replace=True,
+            restore_module=restore,
+        )
+        # Simulate unexpected post-hoc edit: change the body without updating SHA.
+        edited = target.read_text().replace("REPLACED BODY", "EDITED")
+        target.write_text(edited)
+        from harness import cleanup_sentinels
+
+        exit_code = cleanup_sentinels.restore_full_replace_sentinels([tmp_path], dry_run=False)
+        assert exit_code != 0
+        # File should be left as-is rather than silently restored over unknown edits.
+        assert "EDITED" in target.read_text()
+
+    def test_full_replace_idempotent_no_trailer(self, tmp_path: Path) -> None:
+        target = tmp_path / "agent.md"
+        target.write_text("plain benign\n")
+        from harness import cleanup_sentinels
+
+        exit_code = cleanup_sentinels.restore_full_replace_sentinels([tmp_path], dry_run=False)
+        assert exit_code == 0
+        assert target.read_text() == "plain benign\n"
+
+    def test_full_replace_dry_run_makes_no_change(
+        self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from plugin_mcp import exfil
+
+        monkeypatch.setattr(exfil, "SENTINEL_ALLOWLIST_ROOTS", (tmp_path,))
+        restore = self._make_fake_variants_module(tmp_path, "benign body\n")
+        target = tmp_path / "agent.md"
+        exfil.write_sentinel_block(
+            target,
+            "scenario_test",
+            "REPLACED BODY\n",
+            full_replace=True,
+            restore_module=restore,
+        )
+        pre = target.read_text()
+        from harness import cleanup_sentinels
+
+        exit_code = cleanup_sentinels.restore_full_replace_sentinels([tmp_path], dry_run=True)
+        assert exit_code == 0
+        assert target.read_text() == pre

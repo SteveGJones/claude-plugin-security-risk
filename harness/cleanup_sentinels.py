@@ -18,6 +18,17 @@ START_RE = re.compile(r"^# DEMO_SENTINEL_START (\S+) (\S+)\s*$")
 SHA_RE = re.compile(r"^# DEMO_SENTINEL_SHA256 ([0-9a-f]{64})\s*$")
 END_RE_FMT = r"^# DEMO_SENTINEL_END {scenario}\s*$"
 
+FULL_REPLACE_START_RE = re.compile(r"^<!-- DEMO_SENTINEL_FULL_REPLACE_START (\S+) (\S+) -->\s*$")
+FULL_REPLACE_SHA_RE = re.compile(r"^<!-- DEMO_SENTINEL_SHA256 ([0-9a-f]{64}) -->\s*$")
+FULL_REPLACE_RESTORE_RE = re.compile(r"^<!-- DEMO_SENTINEL_RESTORE_MODULE (\S+) -->\s*$")
+FULL_REPLACE_END_RE_FMT = r"^<!-- DEMO_SENTINEL_FULL_REPLACE_END {scenario} -->\s*$"
+
+
+def _repo_roots(repo: Path | None) -> list[Path]:
+    if repo is None:
+        return []
+    return [repo / "agents", repo / "skills"]
+
 
 def _allowlisted_files(home: Path) -> list[Path]:
     candidates = [
@@ -86,6 +97,90 @@ def _strip_blocks(text: str) -> tuple[str, int]:
     return "".join(out), removed
 
 
+def _restore_one(path: Path) -> tuple[bool, str]:
+    """Try to restore `path` from its FULL_REPLACE trailer.
+
+    Returns (restored, message). restored=True on success, False if no
+    trailer was found. Raises ValueError on SHA mismatch or malformed trailer.
+    """
+    import importlib
+
+    text = path.read_text()
+    lines = text.splitlines(keepends=True)
+    # Find the trailer. It lives at the END of the file, so scan backwards
+    # for FULL_REPLACE_START.
+    start_idx: int | None = None
+    scenario: str | None = None
+    for idx in range(len(lines) - 1, -1, -1):
+        m = FULL_REPLACE_START_RE.match(lines[idx].rstrip("\n"))
+        if m:
+            start_idx = idx
+            scenario = m.group(1)
+            break
+    if start_idx is None or scenario is None:
+        return (False, "")
+    # Parse the next three lines: SHA, RESTORE_MODULE, END.
+    if start_idx + 3 >= len(lines):
+        raise ValueError(f"{path}: incomplete FULL_REPLACE trailer")
+    sha_m = FULL_REPLACE_SHA_RE.match(lines[start_idx + 1].rstrip("\n"))
+    restore_m = FULL_REPLACE_RESTORE_RE.match(lines[start_idx + 2].rstrip("\n"))
+    end_re = re.compile(FULL_REPLACE_END_RE_FMT.format(scenario=re.escape(scenario)))
+    end_m = end_re.match(lines[start_idx + 3].rstrip("\n"))
+    if not sha_m or not restore_m or not end_m:
+        raise ValueError(f"{path}: malformed FULL_REPLACE trailer for {scenario}")
+    expected_digest = sha_m.group(1)
+    restore_module = restore_m.group(1)
+    body = "".join(lines[:start_idx])
+    actual_digest = hashlib.sha256(body.encode()).hexdigest()
+    if actual_digest != expected_digest:
+        raise ValueError(
+            f"{path}: SHA mismatch for {scenario} — expected {expected_digest}, got {actual_digest}"
+        )
+    if ":" not in restore_module:
+        raise ValueError(f"{path}: RESTORE_MODULE must be 'pkg.mod:ATTR', got {restore_module!r}")
+    mod_name, attr_name = restore_module.split(":", 1)
+    mod = importlib.import_module(mod_name)
+    benign = getattr(mod, attr_name)
+    if not isinstance(benign, str):
+        raise ValueError(f"{path}: {restore_module} is not a str")
+    return (True, benign)
+
+
+def restore_full_replace_sentinels(roots: list[Path], *, dry_run: bool) -> int:
+    """Second pass: restore FULL_REPLACE-sentinel files from their canonical
+    benign source in _variants.py modules.
+
+    Returns 0 on clean success, non-zero if any restore refused (SHA mismatch
+    or malformed trailer).
+    """
+    exit_code = 0
+    for root in roots:
+        if not root.exists():
+            continue
+        targets = [p for p in root.rglob("*") if p.is_file() and p.suffix in {".md", ".py"}]
+        for path in targets:
+            text = path.read_text()
+            if "DEMO_SENTINEL_FULL_REPLACE_START" not in text:
+                continue
+            try:
+                restored, benign = _restore_one(path)
+            except ValueError as e:
+                print(f"[cleanup] refused: {e}", file=sys.stderr)
+                exit_code = 1
+                continue
+            if not restored:
+                continue
+            if dry_run:
+                print(
+                    f"[cleanup] would restore {path} from trailer "
+                    f"(bytes {len(text)} → {len(benign)})"
+                )
+                continue
+            path.write_text(benign)
+            print(f"[cleanup] restored {path} (bytes {len(text)} → {len(benign)})")
+    return exit_code
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -95,6 +190,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--home", default=str(Path.home()))
     parser.add_argument("--log", default="capture/cleanup.log")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument(
+        "--repo",
+        type=Path,
+        default=None,
+        help="Repo root for agents/ + skills/ FULL_REPLACE restoration. "
+        "Defaults to walk-up from this file.",
+    )
     args = parser.parse_args(argv)
 
     home = Path(args.home)
@@ -132,6 +234,12 @@ def main(argv: list[str] | None = None) -> int:
         with log_path.open("a") as fh:
             for entry in log_entries:
                 fh.write(json.dumps(entry) + "\n")
+
+    repo = args.repo or Path(__file__).resolve().parent.parent
+    repo_roots = _repo_roots(repo)
+    fr_exit = restore_full_replace_sentinels(repo_roots, dry_run=args.dry_run)
+    if fr_exit:
+        rc = fr_exit
     return rc
 
 
