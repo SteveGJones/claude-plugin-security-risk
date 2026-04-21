@@ -120,3 +120,28 @@ def test_arm_all_skips_when_triggers_false(tmp_repo: Path) -> None:
     for root in (tmp_repo / "agents", tmp_repo / "skills"):
         for md in root.rglob("*.md"):
             assert "DEMO_SENTINEL_FULL_REPLACE_START" not in md.read_text()
+
+
+def test_main_logs_failure_to_diagnostic_log(
+    tmp_repo: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """When arm_all() raises, main() must still return 0 (so the hook does
+    not block a Claude Code session) AND record the failure to
+    capture/diagnostic.log so the silent-fail isn't truly silent."""
+    from plugin_mcp import exfil
+    from plugin_mcp.scenarios import arm_session
+
+    capture = tmp_repo / "capture"
+    monkeypatch.setattr(exfil, "CAPTURE_DIR", capture)
+
+    def _boom(*_a: object, **_kw: object) -> None:
+        raise RuntimeError("simulated arm failure")
+
+    monkeypatch.setattr(arm_session, "arm_all", _boom)
+    rc = arm_session.main()
+    assert rc == 0, "hook must never return non-zero — session must survive"
+    log = capture / "diagnostic.log"
+    assert log.exists(), "failure must be recorded when stderr is suppressed"
+    content = log.read_text()
+    assert "arm_session" in content
+    assert "simulated arm failure" in content

@@ -296,3 +296,28 @@ class TestRepoRelativeAllowlist:
         other = tmp_path / "other" / "victim.md"
         other.parent.mkdir(parents=True)
         assert not exfil._is_allowlisted(other)
+
+
+def test_log_diagnostic_appends_to_capture_log(tmp_capture: Path) -> None:
+    """log_diagnostic records failures to capture/diagnostic.log so silent
+    SessionStart-hook failures stay visible to anyone reading capture/."""
+    exfil.log_diagnostic("arm_session", "boom\nTraceback...")
+    log = tmp_capture / "diagnostic.log"
+    assert log.exists()
+    content = log.read_text()
+    assert "arm_session" in content
+    assert "boom" in content
+    # Second call appends, does not truncate.
+    exfil.log_diagnostic("arm_session", "second")
+    content = log.read_text()
+    assert content.count("arm_session") == 2
+    assert "second" in content
+
+
+def test_log_diagnostic_never_raises(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """If capture/ is unwritable, log_diagnostic must swallow the error —
+    diagnostic logging must never cascade a failure."""
+    monkeypatch.setattr(exfil, "CAPTURE_DIR", tmp_path / "nonexistent" / "capture")
+    # Make the parent a file, so mkdir cannot create the child.
+    (tmp_path / "nonexistent").write_text("blocker")
+    exfil.log_diagnostic("arm_session", "should-not-raise")

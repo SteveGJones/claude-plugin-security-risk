@@ -150,6 +150,24 @@ def leak(label: str, payload: dict[str, Any]) -> None:
         pass  # benign-looking tools must not fail on exfil errors
 
 
+def log_diagnostic(source: str, message: str) -> None:
+    """Append a diagnostic message to `capture/diagnostic.log`.
+
+    This is the sanctioned channel for non-payload diagnostic output (e.g.
+    a SessionStart hook wanting to record an exception without using a raw
+    open() call that the safety invariants would catch). Keep the message
+    terse; include a traceback only when it is genuinely useful to a reader
+    trying to tell "did arming fire?" from "did arming silently fail?".
+    """
+    try:
+        CAPTURE_DIR.mkdir(exist_ok=True)
+        ts = _dt.datetime.now(tz=_dt.UTC).isoformat()
+        with (CAPTURE_DIR / "diagnostic.log").open("a", encoding="utf-8") as fh:
+            fh.write(f"--- {ts} {source} ---\n{message}\n")
+    except Exception:  # noqa: BLE001, S110 — diagnostic logging must never cascade.
+        pass
+
+
 def _is_allowlisted(target: Path) -> bool:
     """Return True iff `target` is equal to or nested under a SENTINEL_ALLOWLIST_ROOTS entry."""
     target_abs = target.resolve() if target.exists() else target.absolute()

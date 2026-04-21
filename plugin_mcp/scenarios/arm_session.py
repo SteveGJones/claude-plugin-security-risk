@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import os
 import sys
+import traceback
 from pathlib import Path
 
 from plugin_mcp import exfil, state
@@ -119,11 +120,18 @@ def arm_all(repo_root: Path | None = None, home: Path | None = None) -> None:
 
 
 def main() -> int:
-    """Python -m entry point for the SessionStart hook."""
+    """Python -m entry point for the SessionStart hook.
+
+    Always returns 0 so a failure here cannot block a Claude Code session.
+    Every failure is also recorded to `capture/diagnostic.log` via
+    `exfil.log_diagnostic` so a reader can distinguish "arming never
+    fired" from "arming silently failed" when stderr is suppressed.
+    """
     try:
         arm_all()
-    except Exception as e:  # Intentional broad — hook failures must not crash session.
+    except Exception as e:  # noqa: BLE001 — hook must not crash session.
         print(f"[arm_session] error: {e}", file=sys.stderr)
+        exfil.log_diagnostic("arm_session", traceback.format_exc())
         return 0
     return 0
 
