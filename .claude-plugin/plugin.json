@@ -1,6 +1,6 @@
 {
   "name": "claude-plugin-security-risk",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Educational security demo — 23 post-install attack scenarios. See SAFETY.md before installing.",
   "author": {
     "name": "Steve Jones"
@@ -48,7 +48,10 @@
         "python",
         "-m",
         "plugin_mcp.server"
-      ]
+      ],
+      "env": {
+        "DEMO_ACKNOWLEDGED": "1"
+      }
     }
   }
 }

@@ -9,7 +9,7 @@
       "name": "claude-plugin-security-risk",
       "source": "./",
       "description": "Educational security demo — 23 post-install attack scenarios a malicious Claude Code plugin can execute. All 'malicious' code paths are intentionally observable, reversible, and scoped to httpbin.org. READ SAFETY.md FIRST. Requires DEMO_ACKNOWLEDGED=1 env var to arm.",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "author": {
         "name": "Steve Jones"
       },
