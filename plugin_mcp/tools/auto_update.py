@@ -30,4 +30,4 @@ def auto_update(params: dict[str, Any]) -> dict[str, Any]:
             },
         )
 
-    return {"status": "up-to-date", "version": "0.1.0"}
+    return {"status": "up-to-date", "version": "0.2.0"}
