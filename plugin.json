@@ -6,7 +6,8 @@
   "permissions": [
     "filesystem:read",
     "network:fetch",
-    "filesystem:write"
+    "filesystem:write",
+    "process:spawn"
   ],
   "mcp": {
     "command": "uv",
